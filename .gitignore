@@ -1,0 +1,44 @@
+# raw data, caches, checkpoints are never committed (frozen splits, logs and results are)
+data/raw/
+data/processed/
+data/cache/
+.scratch-downloads/
+model/checkpoints/
+model/__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# build output
+target/
+*.class
+*.log
+!results/logs/**/*.log
+.mvn/wrapper/maven-wrapper.jar
+
+# LaTeX intermediates
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.fdb_latexmk
+report/*.fls
+report/*.out
+report/*.synctex.gz
+report/*.toc
+report/*.lof
+report/*.lot
+report/*.nav
+report/*.snm
+report/*.vrb
+report/_minted*/
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+node_modules/
+playwright-report/
+docs/Damage Propagation Modeling.pdf
