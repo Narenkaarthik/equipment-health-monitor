@@ -28,7 +28,7 @@ SURFACE = "#fcfcfb"
 # Fixed colour per experimental arm so an arm keeps its colour in every figure.
 ARM_COLORS = {
     "full21": SERIES[0],
-    "informative14": SERIES[2],
+    "informative15": SERIES[2],
     "reduced8": SERIES[1],
     "trivial_mean": MUTED,
     "ridge": SERIES[6],

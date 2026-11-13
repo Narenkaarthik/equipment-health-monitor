@@ -1,0 +1,36 @@
+{
+  "_comment": "PRE-REGISTERED RECIPE. Frozen before the first main-comparison result existed (commit of Block 2). Every number below is fixed; changing any of them after a main run makes that run post hoc and must be labelled so in results/runs.csv (phase=posthoc).",
+  "dataset": "NASA C-MAPSS FD001 (physics-based simulation, not field data)",
+  "split_file": "data/splits/fd001_split.json",
+  "split": {"group": "unit", "train": 70, "val": 15, "test": 15, "seed": 20240613},
+  "label": {"name": "RUL", "cap": 125},
+  "window": {"size": 30, "min_rows": 1, "features_per_sensor": ["mean", "std", "slope"], "std_ddof": 0,
+             "slope": "ordinary least squares slope of value against position 0..n-1 inside the window; 0 when n < 2"},
+  "arms": {
+    "full21": {"sensors": "all 21 sensors", "rule": "fixed"},
+    "informative15": {"sensors": "the sensors whose standard deviation on TRAIN engines exceeds 1e-6 (this keeps near-constant s6; the literature often drops it too, we do not)", "rule": "computed on train split only"},
+    "reduced8": {"sensors": "the 8 sensors with the largest |Spearman rho| between the 30-cycle window mean and capped RUL on TRAIN engines", "rule": "computed on train split only"}
+  },
+  "hypothesis": "H1: the reduced8 arm is non-inferior to full21: mean test RMSE(reduced8) - mean test RMSE(full21) < 1.0 cycle. H0: the gap is >= 1.0 cycle.",
+  "headline_metric": "RMSE on capped RUL over every row of the 15 held-out test engines",
+  "secondary_metrics": ["MAE", "NASA PHM08 asymmetric score (mean per row)", "status accuracy and macro-F1 for HEALTHY/WARNING/CRITICAL derived from RUL thresholds 60/30 (accuracy is reported but misleading: HEALTHY dominates)"],
+  "official_benchmark": "test_FD001.txt last-cycle prediction vs RUL_FD001.txt, read once per finished run, reported as a secondary number comparable with the literature",
+  "model": {
+    "name": "sklearn.ensemble.GradientBoostingRegressor",
+    "learning_rate": 0.05,
+    "max_depth": 4,
+    "subsample": 0.8,
+    "min_samples_leaf": 20,
+    "max_estimators": 800,
+    "loss": "squared_error"
+  },
+  "selection_rule": "n_estimators is chosen per arm from the grid [100, 200, 300, 400, 500, 600, 700, 800] by the lowest MEAN validation RMSE across the three seeds (staged predictions of the same fitted model). The test split is scored once per run at the selected stage only. The same grid and budget apply to every arm.",
+  "seeds": [0, 1, 2],
+  "budget": "identical for every arm: same split, same window, same model, same hyper-parameters, same grid, same seeds; arms differ only in which sensors enter the window",
+  "baselines": {
+    "trivial_mean": "predict the mean capped RUL of the train rows",
+    "ridge": "sklearn Ridge(alpha=1.0) on standardised features, no selection"
+  },
+  "pretraining_pool": "none: no pre-training is used anywhere, so there is no pool to keep free of validation and test groups",
+  "parity_tolerance": {"features_python_vs_reference_abs": 1e-9, "features_java_vs_python_abs": 1e-6, "onnx_prediction_abs": 1e-3}
+}

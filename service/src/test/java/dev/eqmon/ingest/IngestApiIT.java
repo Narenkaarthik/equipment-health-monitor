@@ -3,7 +3,7 @@ package dev.eqmon.ingest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.eqmon.machines.MachineRepository;
-import dev.eqmon.support.PostgresTestBase;
+import dev.eqmon.support.IntegrationTestBase;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /** Stage 1: POST /api/readings against a real PostgreSQL. */
-class IngestApiIT extends PostgresTestBase {
+class IngestApiIT extends IntegrationTestBase {
 
     @Autowired TestRestTemplate http;
     @Autowired MachineRepository machines;

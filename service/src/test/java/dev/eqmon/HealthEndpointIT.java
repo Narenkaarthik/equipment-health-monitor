@@ -2,7 +2,7 @@ package dev.eqmon;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import dev.eqmon.support.PostgresTestBase;
+import dev.eqmon.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /** Stage 0 "done when": the health check answers 200 and the first migration has run. */
-class HealthEndpointIT extends PostgresTestBase {
+class HealthEndpointIT extends IntegrationTestBase {
 
     @Autowired TestRestTemplate http;
     @Autowired JdbcClient jdbc;

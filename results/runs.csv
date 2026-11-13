@@ -1,0 +1,7 @@
+run_id,timestamp,phase,arm,model,seed,window,cap,n_sensors,n_features,n_estimators,val_rmse,test_rmse,test_mae,test_nasa,test_status_acc,test_status_f1_macro,test_critical_recall,official_rmse,official_nasa,train_seconds,infer_us_per_row,config_hash,notes
+baseline-trivial_mean-full21,2026-11-13T15:39:31+00:00,baseline,full21,trivial_mean,,30,125,21,63,0,41.8105,41.5774,36.9838,302.3501,0.7172,0.2784,0.0,41.9662,336.2562,0.0,0.0,63825b1c478a,predicts 86.91
+baseline-ridge-full21,2026-11-13T15:39:31+00:00,baseline,full21,ridge,,30,125,21,63,0,18.9093,18.7764,14.2559,7.2835,0.8501,0.7,0.64,19.4549,8.674,0.072,0.783,63825b1c478a,"alpha=1.0, standardised"
+baseline-trivial_mean-informative15,2026-11-13T15:39:31+00:00,baseline,informative15,trivial_mean,,30,125,15,45,0,41.8105,41.5774,36.9838,302.3501,0.7172,0.2784,0.0,41.9662,336.2562,0.0,0.0,63825b1c478a,predicts 86.91
+baseline-ridge-informative15,2026-11-13T15:39:31+00:00,baseline,informative15,ridge,,30,125,15,45,0,19.075,19.013,14.3747,7.7716,0.8498,0.699,0.6378,19.5259,9.0981,0.022,0.511,63825b1c478a,"alpha=1.0, standardised"
+baseline-trivial_mean-reduced8,2026-11-13T15:39:31+00:00,baseline,reduced8,trivial_mean,,30,125,8,24,0,41.8105,41.5774,36.9838,302.3501,0.7172,0.2784,0.0,41.9662,336.2562,0.0,0.0,63825b1c478a,predicts 86.91
+baseline-ridge-reduced8,2026-11-13T15:39:31+00:00,baseline,reduced8,ridge,,30,125,8,24,0,21.6505,20.8592,15.6145,9.2096,0.8486,0.6949,0.6156,21.332,11.6363,0.012,0.31,63825b1c478a,"alpha=1.0, standardised"
