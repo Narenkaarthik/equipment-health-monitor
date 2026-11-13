@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Equipment Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --surface: #fcfcfb; --page: #f9f9f7; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #6250d6;
+    --good: #0ca30c; --warn: #fab219; --crit: #d03b3b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--page); }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--grid); }
+  header h1 { font-size: 18px; margin: 0; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  #live { margin-left: auto; font-size: 12px; color: var(--muted); }
+  #live.on::before { content: "\25CF "; color: var(--good); }
+  main { display: grid; grid-template-columns: 340px 1fr 320px; gap: 16px; padding: 16px 24px; }
+  section { background: var(--surface); border: 1px solid var(--grid); border-radius: 8px; padding: 12px 14px; min-height: 200px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink2); margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--muted); font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.machine { cursor: pointer; }
+  tr.machine:hover, tr.machine.selected { background: #eef4fc; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .HEALTHY .dot { background: var(--good); } .WARNING .dot { background: var(--warn); } .CRITICAL .dot { background: var(--crit); }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 4px; color: #fff; }
+  .badge.WARNING { background: var(--warn); color: var(--ink); } .badge.CRITICAL { background: var(--crit); }
+  .summary { display: flex; gap: 10px; margin-bottom: 10px; }
+  .tile { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--grid); }
+  .tile b { display: block; font-size: 20px; }
+  .tile.HEALTHY b { color: var(--good); } .tile.WARNING b { color: #9a6a00; } .tile.CRITICAL b { color: var(--crit); }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chart { height: 190px; }
+  .chart.wide { grid-column: span 2; height: 220px; }
+  #alerts li { list-style: none; padding: 6px 0; border-bottom: 1px solid var(--grid); font-size: 12.5px; }
+  #alerts ul { padding: 0; margin: 0; max-height: 70vh; overflow: auto; }
+  #alerts .when { color: var(--muted); }
+  button { font: inherit; font-size: 11px; padding: 2px 8px; border: 1px solid var(--axis); background: #fff; border-radius: 4px; cursor: pointer; }
+  button:disabled { color: var(--muted); }
+  .scroll { max-height: 72vh; overflow: auto; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Equipment Monitor</h1>
+  <span class="meta" id="model">model: …</span>
+  <span id="live">connecting…</span>
+</header>
+<main>
+  <section id="fleet">
+    <h2>Fleet</h2>
+    <div class="summary">
+      <div class="tile HEALTHY"><b id="nHealthy">0</b>healthy</div>
+      <div class="tile WARNING"><b id="nWarning">0</b>warning</div>
+      <div class="tile CRITICAL"><b id="nCritical">0</b>critical</div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Machine</th><th>Status</th><th class="num">Cycle</th><th class="num">Pred. RUL</th></tr></thead>
+        <tbody id="fleetBody"></tbody>
+      </table>
+    </div>
+  </section>
+  <section id="machine">
+    <h2 id="machineTitle">Machine: select one from the fleet</h2>
+    <div class="charts">
+      <div class="chart wide"><canvas id="rulChart"></canvas></div>
+      <div class="chart"><canvas id="c_s11"></canvas></div>
+      <div class="chart"><canvas id="c_s4"></canvas></div>
+      <div class="chart"><canvas id="c_s7"></canvas></div>
+      <div class="chart"><canvas id="c_s12"></canvas></div>
+    </div>
+  </section>
+  <section id="alerts">
+    <h2>Alerts <span class="meta" id="alertCount"></span></h2>
+    <ul id="alertList"></ul>
+  </section>
+</main>
+<script>
+(function () {
+  const css = getComputedStyle(document.documentElement);
+  const C = (v) => css.getPropertyValue(v).trim();
+  const api = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p + " -> " + r.status); return r.json(); });
+  const fleet = new Map();     // id -> row
+  let selected = null;
+  const SENSORS = ["s11", "s4", "s7", "s12"];
+  const SENSOR_NAMES = { s11: "sensor 11 (HPC outlet static pressure)", s4: "sensor 4 (LPT outlet temperature)", s7: "sensor 7 (HPC outlet pressure)", s12: "sensor 12 (fuel flow ratio)" };
+
+  function baseChart(ctx, label, color, yTitle) {
+    return new Chart(ctx, {
+      type: "line",
+      data: { datasets: [{ label, data: [], borderColor: color, borderWidth: 1.6, pointRadius: 0, tension: 0.15 }] },
+      options: {
+        animation: false, responsive: true, maintainAspectRatio: false, parsing: false, normalized: true,
+        interaction: { mode: "nearest", axis: "x", intersect: false },
+        plugins: { legend: { display: false }, title: { display: true, text: label, color: C("--ink2"), font: { size: 12, weight: "500" }, align: "start" },
+                   tooltip: { callbacks: { title: (items) => "cycle " + items[0].parsed.x } } },
+        scales: {
+          x: { type: "linear", title: { display: true, text: "cycle", color: C("--muted") }, grid: { color: C("--grid") }, ticks: { color: C("--ink2") } },
+          y: { title: { display: !!yTitle, text: yTitle || "", color: C("--muted") }, grid: { color: C("--grid") }, ticks: { color: C("--ink2") } },
+        },
+      },
+    });
+  }
+  const rulChart = baseChart(document.getElementById("rulChart"), "predicted remaining useful life (cycles)", C("--s1"), "cycles");
+  rulChart.options.plugins.annotation = undefined;
+  rulChart.data.datasets.push(
+    { label: "warning < 60", data: [], borderColor: C("--warn"), borderWidth: 1, borderDash: [4, 4], pointRadius: 0 },
+    { label: "critical < 30", data: [], borderColor: C("--crit"), borderWidth: 1, borderDash: [4, 4], pointRadius: 0 });
+  rulChart.options.plugins.legend = { display: true, position: "top", align: "end", labels: { boxWidth: 12, color: C("--ink2") } };
+  const sensorCharts = {};
+  const colors = [C("--s1"), C("--s2"), C("--s3"), C("--s4")];
+  SENSORS.forEach((s, i) => { sensorCharts[s] = baseChart(document.getElementById("c_" + s), SENSOR_NAMES[s], colors[i]); });
+
+  function renderFleet() {
+    const body = document.getElementById("fleetBody");
+    const rows = [...fleet.values()].sort((a, b) => a.id - b.id);
+    const counts = { HEALTHY: 0, WARNING: 0, CRITICAL: 0 };
+    body.innerHTML = rows.map((m) => {
+      counts[m.status] = (counts[m.status] || 0) + 1;
+      return `<tr class="machine ${m.status} ${selected === m.id ? "selected" : ""}" data-id="${m.id}">
+        <td><span class="dot"></span>${m.name}</td><td>${m.status.toLowerCase()}</td>
+        <td class="num">${m.lastCycle ?? "–"}</td><td class="num">${m.predictedRul == null ? "–" : m.predictedRul.toFixed(1)}</td></tr>`;
+    }).join("");
+    document.getElementById("nHealthy").textContent = counts.HEALTHY;
+    document.getElementById("nWarning").textContent = counts.WARNING;
+    document.getElementById("nCritical").textContent = counts.CRITICAL;
+    body.querySelectorAll("tr.machine").forEach((tr) => tr.addEventListener("click", () => select(Number(tr.dataset.id))));
+  }
+
+  async function loadFleet() {
+    const rows = await api("/api/machines");
+    rows.forEach((r) => fleet.set(r.id, r));
+    const withModel = rows.find((r) => r.modelVersion);
+    if (withModel) document.getElementById("model").textContent = "model: " + withModel.modelVersion;
+    renderFleet();
+    if (selected == null && rows.length) select(rows[0].id);
+  }
+
+  async function select(id) {
+    selected = id;
+    renderFleet();
+    const m = fleet.get(id);
+    document.getElementById("machineTitle").textContent = `Machine: ${m ? m.name : id}`;
+    const health = await api(`/api/machines/${id}/health?limit=2000`);
+    const pts = health.points.map((p) => ({ x: p.cycle, y: p.predictedRul }));
+    rulChart.data.datasets[0].data = pts;
+    const xMax = pts.length ? pts[pts.length - 1].x : 1;
+    rulChart.data.datasets[1].data = [{ x: 1, y: 60 }, { x: xMax, y: 60 }];
+    rulChart.data.datasets[2].data = [{ x: 1, y: 30 }, { x: xMax, y: 30 }];
+    rulChart.update();
+    for (const s of SENSORS) {
+      const r = await api(`/api/machines/${id}/readings?sensor=${s}&limit=2000`);
+      sensorCharts[s].data.datasets[0].data = r.points.map((p) => ({ x: p.cycle, y: p.value }));
+      sensorCharts[s].update();
+    }
+  }
+
+  function alertItem(a) {
+    const when = new Date(a.openedAt).toLocaleTimeString();
+    const state = a.closedAt ? `closed at cycle ${a.closedCycle}` : (a.acknowledgedAt ? "open, acknowledged" : "open");
+    const name = fleet.get(a.machineId)?.name || ("machine " + a.machineId);
+    return `<li data-id="${a.id}"><span class="badge ${a.severity}">${a.severity}</span> <b>${name}</b> cycle ${a.openedCycle}
+      <span class="when">${when}</span><br>${a.detail}<br><span class="when">${state}</span>
+      ${a.closedAt || a.acknowledgedAt ? "" : `<button data-ack="${a.id}">acknowledge</button>`}</li>`;
+  }
+  async function loadAlerts() {
+    const list = await api("/api/alerts?status=all&limit=200");
+    const ul = document.getElementById("alertList");
+    ul.innerHTML = list.map(alertItem).join("");
+    document.getElementById("alertCount").textContent = `${list.filter((a) => !a.closedAt).length} open`;
+    ul.querySelectorAll("button[data-ack]").forEach((b) => b.addEventListener("click", async () => {
+      b.disabled = true;
+      await fetch(`/api/alerts/${b.dataset.ack}/acknowledge`, { method: "POST" });
+    }));
+  }
+
+  function connect() {
+    const es = new EventSource("/api/stream");
+    const live = document.getElementById("live");
+    es.onopen = () => { live.textContent = "live"; live.classList.add("on"); };
+    es.onerror = () => { live.textContent = "reconnecting…"; live.classList.remove("on"); };
+    es.addEventListener("status", (e) => {
+      const d = JSON.parse(e.data);
+      const m = fleet.get(d.machineId);
+      if (m) { m.status = d.status; renderFleet(); }
+    });
+    es.addEventListener("alert", () => loadAlerts());
+    es.addEventListener("score", (e) => {
+      const d = JSON.parse(e.data);
+      const m = fleet.get(d.machineId);
+      if (m) { m.lastCycle = d.cycle; m.predictedRul = d.predictedRul; }
+      if (d.machineId === selected) {
+        const data = rulChart.data.datasets[0].data;
+        if (!data.length || data[data.length - 1].x < d.cycle) {
+          data.push({ x: d.cycle, y: d.predictedRul });
+          rulChart.data.datasets[1].data[1].x = d.cycle;
+          rulChart.data.datasets[2].data[1].x = d.cycle;
+          rulChart.update("none");
+        }
+      }
+    });
+    // the fleet table re-renders on a timer so 200 score events per second do not redraw it 200 times
+    setInterval(renderFleet, 1000);
+    setInterval(() => { if (selected != null) refreshSensors(selected); }, 3000);
+  }
+  async function refreshSensors(id) {
+    for (const s of SENSORS) {
+      const data = sensorCharts[s].data.datasets[0].data;
+      const from = data.length ? data[data.length - 1].x + 1 : 1;
+      const r = await api(`/api/machines/${id}/readings?sensor=${s}&from=${from}&limit=2000`);
+      if (r.points.length && id === selected) {
+        r.points.forEach((p) => data.push({ x: p.cycle, y: p.value }));
+        sensorCharts[s].update("none");
+      }
+    }
+  }
+
+  loadFleet().then(loadAlerts).then(connect).catch((e) => { document.getElementById("live").textContent = String(e); });
+})();
+</script>
+</body>
+</html>

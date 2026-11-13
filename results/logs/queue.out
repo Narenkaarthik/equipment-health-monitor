@@ -1,0 +1,11 @@
++ model/train.py fit --arm full21 --seed 0
+fit full21 seed 0: 244.7s; val RMSE by n: 100:13.322, 200:13.079, 300:13.157, 400:13.181, 500:13.204, 600:13.236, 700:13.270, 800:13.306
++ model/train.py fit --arm full21 --seed 1
+fit full21 seed 1: 242.3s; val RMSE by n: 100:13.146, 200:12.889, 300:12.947, 400:13.017, 500:13.053, 600:13.106, 700:13.181, 800:13.236
++ model/train.py fit --arm full21 --seed 2
+fit full21 seed 2: 247.9s; val RMSE by n: 100:13.293, 200:13.139, 300:13.219, 400:13.233, 500:13.330, 600:13.384, 700:13.439, 800:13.491
++ model/train.py evaluate --arm full21
+main-gbr-full21-s0: n=200 val 13.0789 test 12.9335 official 13.1249
+main-gbr-full21-s1: n=200 val 12.8886 test 12.9669 official 13.3571
+main-gbr-full21-s2: n=200 val 13.139 test 13.0606 official 13.1805
++ model/train.py fit --arm informative15 --seed 0

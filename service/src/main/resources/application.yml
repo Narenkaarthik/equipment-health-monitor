@@ -15,10 +15,35 @@ spring:
       host: ${MONITOR_REDIS_HOST:localhost}
       port: ${MONITOR_REDIS_PORT:6379}
 
+  kafka:
+    bootstrap-servers: ${MONITOR_KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
 monitor:
+  pipeline: ${MONITOR_PIPELINE:direct}   # direct (stages 1-4) or kafka (stage 5)
+  consumer:
+    enabled: ${MONITOR_CONSUMER_ENABLED:true}
+  kafka:
+    partitions: 6
+    group: processor
   window:
     size: 30
     store: ${MONITOR_WINDOW_STORE:redis}
+  alerts:
+    warning-below: 60
+    critical-below: 30
+    trend-drop: 20
+    trend-window: 10
+    close-after: 5
+    hysteresis: 10
 
 server:
   port: ${PORT:8080}

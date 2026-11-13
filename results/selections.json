@@ -1,0 +1,16 @@
+{
+  "full21": {
+    "n_estimators": 200,
+    "mean_val_rmse_by_n": {
+      "100": 13.253976519923057,
+      "200": 13.035496360827318,
+      "300": 13.107407582176753,
+      "400": 13.14383846203952,
+      "500": 13.195871073789775,
+      "600": 13.242116579891038,
+      "700": 13.296710676869012,
+      "800": 13.344530667696574
+    },
+    "rule": "n_estimators is chosen per arm from the grid [100, 200, 300, 400, 500, 600, 700, 800] by the lowest MEAN validation RMSE across the three seeds (staged predictions of the same fitted model). The test split is scored once per run at the selected stage only. The same grid and budget apply to every arm."
+  }
+}

@@ -6,6 +6,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
@@ -23,6 +24,8 @@ public abstract class IntegrationTestBase {
     private static final String ENV_REDIS = "MONITOR_TEST_REDIS_HOST";
     private static final PostgreSQLContainer PG;
     private static final GenericContainer<?> REDIS;
+    private static final String ENV_KAFKA = "MONITOR_TEST_KAFKA_BOOTSTRAP";
+    private static final KafkaContainer KAFKA;
 
     static {
         boolean docker = DockerClientFactory.instance().isDockerAvailable();
@@ -37,6 +40,12 @@ public abstract class IntegrationTestBase {
             REDIS.start();
         } else {
             REDIS = null;
+        }
+        if (System.getenv(ENV_KAFKA) == null && docker) {
+            KAFKA = new KafkaContainer("apache/kafka-native:4.0.0");
+            KAFKA.start();
+        } else {
+            KAFKA = null;
         }
     }
 
@@ -61,6 +70,11 @@ public abstract class IntegrationTestBase {
         } else {
             registry.add("spring.data.redis.host", () -> envOr(ENV_REDIS, "localhost"));
             registry.add("spring.data.redis.port", () -> envOr("MONITOR_TEST_REDIS_PORT", "6379"));
+        }
+        if (KAFKA != null) {
+            registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
+        } else {
+            registry.add("spring.kafka.bootstrap-servers", () -> envOr(ENV_KAFKA, "localhost:9092"));
         }
         registry.add("spring.flyway.clean-disabled", () -> "false");
     }
