@@ -42,3 +42,4 @@ Thumbs.db
 node_modules/
 playwright-report/
 docs/Damage Propagation Modeling.pdf
+replayer/dependency-reduced-pom.xml
