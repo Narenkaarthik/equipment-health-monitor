@@ -7,3 +7,43 @@ greedy step 5: +s13 val RMSE 13.960
 greedy step 6: +s17 val RMSE 13.809
 greedy step 7: +s8 val RMSE 13.808
 greedy step 8: +s9 val RMSE 13.703
+posthoc-gbr-greedy8-s0: n=300 test_rmse=13.9241
+posthoc-gbr-greedy8-s1: n=300 test_rmse=13.7454
+posthoc-gbr-greedy8-s2: n=300 test_rmse=13.9616
+posthoc-gbr-full21-w10-s0: n=200 test_rmse=17.8178
+posthoc-gbr-full21-w10-s1: n=200 test_rmse=17.7395
+posthoc-gbr-full21-w10-s2: n=200 test_rmse=17.8029
+posthoc-gbr-reduced8-w10-s0: n=200 test_rmse=19.0176
+posthoc-gbr-reduced8-w10-s1: n=200 test_rmse=19.0404
+posthoc-gbr-reduced8-w10-s2: n=200 test_rmse=18.9699
+posthoc-gbr-full21-w60-s0: n=800 test_rmse=11.2469
+posthoc-gbr-full21-w60-s1: n=800 test_rmse=11.0358
+posthoc-gbr-full21-w60-s2: n=800 test_rmse=11.1839
+posthoc-gbr-reduced8-w60-s0: n=300 test_rmse=12.9152
+posthoc-gbr-reduced8-w60-s1: n=300 test_rmse=12.8971
+posthoc-gbr-reduced8-w60-s2: n=300 test_rmse=12.9174
+posthoc-gbr-random8-0-s0: n=200 test_rmse=15.5923
+posthoc-gbr-random8-0-s1: n=200 test_rmse=15.6448
+posthoc-gbr-random8-0-s2: n=200 test_rmse=15.5156
+posthoc-gbr-random8-1-s0: n=200 test_rmse=13.7308
+posthoc-gbr-random8-1-s1: n=200 test_rmse=13.8838
+posthoc-gbr-random8-1-s2: n=200 test_rmse=13.8243
+posthoc-gbr-random8-2-s0: n=100 test_rmse=14.7978
+posthoc-gbr-random8-2-s1: n=100 test_rmse=14.7748
+posthoc-gbr-random8-2-s2: n=100 test_rmse=14.8707
+posthoc-gbr-worst8-s0: n=200 test_rmse=13.8997
+posthoc-gbr-worst8-s1: n=200 test_rmse=13.9488
+posthoc-gbr-worst8-s2: n=200 test_rmse=14.0362
+posthoc-gbr-full21-cap100-s0: n=200 test_rmse=8.4871
+posthoc-gbr-full21-cap100-s1: n=200 test_rmse=8.3889
+posthoc-gbr-full21-cap100-s2: n=200 test_rmse=8.3872
+posthoc-gbr-reduced8-cap100-s0: n=400 test_rmse=10.3761
+posthoc-gbr-reduced8-cap100-s1: n=400 test_rmse=10.2163
+posthoc-gbr-reduced8-cap100-s2: n=400 test_rmse=10.1973
+posthoc-gbr-full21-cap150-s0: n=300 test_rmse=19.1161
+posthoc-gbr-full21-cap150-s1: n=300 test_rmse=19.0997
+posthoc-gbr-full21-cap150-s2: n=300 test_rmse=19.19
+posthoc-gbr-reduced8-cap150-s0: n=200 test_rmse=21.2176
+posthoc-gbr-reduced8-cap150-s1: n=200 test_rmse=21.3683
+posthoc-gbr-reduced8-cap150-s2: n=200 test_rmse=21.4549
+queue done

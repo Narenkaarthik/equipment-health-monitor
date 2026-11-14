@@ -1,0 +1,3 @@
+posthoc-gbr-full21-rowsplit-s0: leaky row-split RMSE 10.394
+posthoc-gbr-full21-rowsplit-s1: leaky row-split RMSE 9.9157
+posthoc-gbr-full21-rowsplit-s2: leaky row-split RMSE 9.9324

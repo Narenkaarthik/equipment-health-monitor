@@ -1,9 +1,9 @@
 {
-  "state": "running",
+  "state": "done",
   "step": 1,
   "of": 1,
-  "current": "ablations None ",
-  "elapsed_s": 0,
-  "updated": "2026-11-14T07:13:27+00:00",
+  "current": "",
+  "elapsed_s": 20465,
+  "updated": "2026-11-14T12:54:31+00:00",
   "pid": 16812
 }

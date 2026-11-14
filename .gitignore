@@ -43,3 +43,12 @@ node_modules/
 playwright-report/
 docs/Damage Propagation Modeling.pdf
 replayer/dependency-reduced-pom.xml
+learn/*.aux
+learn/*.fls
+learn/*.fdb_latexmk
+learn/*.out
+learn/*.toc
+learn/*.log
+report/*.log
+showcase/video_tmp/
+results/loadtest/*.service.log
