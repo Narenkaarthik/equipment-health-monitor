@@ -1,0 +1,19 @@
+{
+  "unit": 71,
+  "last_cycle": 200,
+  "life": 208,
+  "dashboard_predicted_rul": 14.3,
+  "api_predicted_rul": 14.293,
+  "python_predicted_rul": 14.293,
+  "dashboard_equals_api": true,
+  "api_equals_python": true,
+  "status_shown": "CRITICAL",
+  "status_api": "CRITICAL",
+  "alerts_for_unit": [
+    "CRITICAL at cycle 177",
+    "WARNING at cycle 156"
+  ],
+  "alert_items_on_page": 23,
+  "model_version": "gbr-full21-s0-n200-838cd9be81f5",
+  "passed": true
+}

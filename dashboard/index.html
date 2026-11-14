@@ -207,8 +207,15 @@
         }
       }
     });
-    // the fleet table re-renders on a timer so 200 score events per second do not redraw it 200 times
+    // the fleet table re-renders on a timer so 200 score events per second do not redraw it 200 times,
+    // and is re-read from the API every 5 s so the model version and any missed status event catch up
     setInterval(renderFleet, 1000);
+    setInterval(async () => {
+      const rows = await api("/api/machines");
+      rows.forEach((r) => fleet.set(r.id, Object.assign(fleet.get(r.id) || {}, r)));
+      const withModel = rows.find((r) => r.modelVersion);
+      if (withModel) document.getElementById("model").textContent = "model: " + withModel.modelVersion;
+    }, 5000);
     setInterval(() => { if (selected != null) refreshSensors(selected); }, 3000);
   }
   async function refreshSensors(id) {

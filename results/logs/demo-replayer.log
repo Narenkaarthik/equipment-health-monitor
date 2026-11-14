@@ -1,0 +1,3 @@
+Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+replaying 15 engines, 2756 readings, at 25 readings/s, batch 1 -> http://localhost:8080
+done: sent 2756 readings (0 failed) in 110.2 s = 25 readings/s

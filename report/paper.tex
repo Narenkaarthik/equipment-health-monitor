@@ -1,0 +1,243 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+\graphicspath{{figures/}}
+\input{numbers.tex}
+\newcommand{\pmsd}[2]{#1\,$\pm$\,#2}
+\hyphenation{Kafka Postgre-SQL Micro-meter}
+
+\begin{document}
+
+\title{Fewer Sensors, or the Wrong Ones?\\A Pre-registered Test of Sensor Reduction\\in a Real-Time Equipment Monitoring Service}
+
+\author{\IEEEauthorblockN{Naren Kaarthik}
+\IEEEauthorblockA{\textit{equipment-health-monitor} \\
+\url{https://github.com/Narenkaarthik/equipment-health-monitor}}}
+
+\maketitle
+
+\begin{abstract}
+We build a production-style monitoring service that ingests turbofan sensor readings as a stream, keeps a
+sliding window per machine, predicts remaining useful life (RUL) with an in-process ONNX model, and raises
+de-duplicated alerts. On top of it we ask whether the model can run on 8 of the 21 sensors without losing
+accuracy. The test is pre-registered as non-inferiority with a margin of \Margin{} cycle of RMSE on held-out
+engines of NASA C-MAPSS FD001, a simulated run-to-failure dataset. With the pre-registered ranking rule, the
+answer is no: 8 ranked sensors are \HypGap{} cycles worse than all 21 (\MainGbrFullTwoOneTestRmse{} cycles RMSE).
+Post hoc ablations show that the ranking, not the number 8, is what failed: random 8-sensor subsets do better on
+average, and 8 sensors chosen by forward selection on validation engines come within \GreedyEightGap{} cycles.
+A window-length ablation moves the error by about as much as the sensor reduction does, so the main result
+holds only under its recipe. The service passes a kill-and-restart test with no lost or doubled reading and
+alerts identical to an uninterrupted run, and opens exactly one WARNING and one CRITICAL alert on
+\AlertReplayTestEnginesPassing{} of \AlertReplayTestEngines{} held-out engines replayed to failure.
+\end{abstract}
+
+\begin{IEEEkeywords}
+predictive maintenance, remaining useful life, stream processing, pre-registration, ONNX, Kafka
+\end{IEEEkeywords}
+
+\section{Introduction}
+Predictive-maintenance prototypes tend to be notebooks: a model and a score, with no stream, no state and no
+failure handling. This work builds the system around the model and uses it to answer one engineering
+question that matters for deployment: every sensor costs hardware, wiring and a failure mode, so can the
+service run on fewer of them?
+
+We make three contributions. First, a monitoring service in Java with a measured data path: ingest,
+sliding-window features computed in $O(1)$ per reading, in-process ONNX scoring checked against Python, an
+alert engine with explicit open, stay-open and close semantics, and Kafka between ingest and processing.
+Second, a pre-registered sensor-reduction experiment with a frozen engine-level split, three seeds per arm,
+validation-only model selection and a single read of the test split per run. Third, a post hoc analysis that
+separates the idea (fewer sensors) from the recipe (which sensors, which window), reported as such.
+
+\section{Data and setup}
+NASA C-MAPSS FD001~\cite{saxena2008} simulates \EdaEngines{} turbofan engines from healthy to failure under one
+operating condition and one fault mode; it is a physics-based benchmark, not field data. The training file
+has \EdaRows{} rows of 21 sensors and three settings; engine life ranges from \EdaLifeMin{} to \EdaLifeMax{}
+cycles (median \EdaLifeMedian{}). Sensors \ConstantSensors{} are constant.
+
+\textbf{Split.} Engines are groups: \SplitTrain{} train, \SplitVal{} validation and \SplitTest{} test engines, frozen in a JSON
+file with a test that fails if any engine appears in two splits. The official truncated test set is scored as a
+secondary number comparable with the literature.
+
+\textbf{Label and features.} RUL is capped at \LabelCap{} cycles, the usual convention for this
+dataset~\cite{heimes2008}; \EdaShareRowsAboveCap{}\% of training rows are above the cap. For each sensor,
+the mean, population standard deviation and least-squares slope over the last \Window{} readings form the
+features (\CfgFeaturesFull{} for all sensors).
+
+\textbf{Model.} Gradient-boosted regression trees (learning rate \CfgLearningRate{}, depth \CfgMaxDepth{},
+subsample \CfgSubsample{}). The number of trees is chosen per arm from a grid of \CfgGridMin{} to \CfgGridMax{} by the lowest mean validation RMSE over the three seeds; the test split is
+read once per finished run at the chosen size.
+
+\section{The service}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{alert_timeline.pdf}
+\caption{A held-out engine replayed through the service to failure. The model's prediction follows the true
+(capped) remaining life; one WARNING and one CRITICAL open, in that order, and neither repeats.}
+\label{fig:timeline}
+\end{figure}
+
+A replayer streams each engine's rows in cycle order to an ingest API that validates a reading or a batch and
+inserts it with \texttt{ON CONFLICT DO NOTHING} on the key (machine, cycle), so a repeated post is a no-op.
+In the stage-5 configuration ingest publishes each reading to a Kafka topic keyed by machine id, so one machine's
+readings stay ordered~\cite{kreps2011}, and returns once the broker acknowledges. A processor keeps one window
+per machine. Running sums give the mean, variance and slope in $O(1)$ per reading; Java and Python agree within
+$10^{\CfgFeatureTolExp}$ on a fixture. The cycle number is the machine's clock: late readings are ignored and gaps are tolerated.
+The window is saved to Redis after the score and alerts are written, so a crash before the save leads to a
+redelivery that is scored again idempotently. The model runs in-process with ONNX Runtime; on \ParityRows{} real
+test rows Java and Python agree within $10^{\CfgParityTolExp}$ cycles, at \JavaUsPerPrediction{}\,\textmu s per prediction.
+
+The alert engine has two rules. A threshold rule opens WARNING below \AlertWarningBelow{} and CRITICAL below
+\AlertCriticalBelow{} predicted cycles. A trend rule opens WARNING when the least-squares slope of the prediction
+over \AlertTrendWindow{} readings is below \AlertTrendSlope{} cycles per reading. An alert opens once per machine
+and severity, stays open while any of its conditions holds, and closes after \AlertCloseAfter{} consecutive clear
+readings, with \AlertHysteresis{} cycles of hysteresis on thresholds. No alert opens before the feature window
+holds \AlertMinWindowRows{} readings. PostgreSQL stores readings, scores and alerts; the hot window lives in Redis,
+much as Gorilla keeps recent data in memory~\cite{pelkonen2015}. Fig.~\ref{fig:timeline} shows one held-out engine.
+
+\section{Pre-registered experiment}
+\textbf{Hypothesis.} H1: the 8 sensors ranked highest by absolute Spearman correlation between their window mean
+and RUL on the training engines (sensors \ReducedEightSensors{}) are non-inferior to all 21 sensors: the
+mean test RMSE gap is below \Margin{} cycle. A third arm keeps the 15 informative (non-constant) sensors.
+The recipe, the hypothesis and a deployment rule (ship the 8-sensor model only if H1 holds) were committed
+before the first main result.
+
+\begin{table*}[t]
+\centering
+\caption{Pre-registered comparison on \SplitTest{} held-out engines (mean $\pm$ std over seeds; baselines are deterministic).}
+\label{tab:main}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\input{tables/main.tex}
+\end{table*}
+
+\textbf{Result.} Table~\ref{tab:main}. All 21 sensors give \pmsd{\MainGbrFullTwoOneTestRmse}{\MainGbrFullTwoOneTestRmseStd}
+cycles RMSE, \TrivOverGbr{} times better than predicting the training mean. The 8 ranked sensors give
+\pmsd{\MainGbrReducedEightTestRmse}{\MainGbrReducedEightTestRmseStd}: a gap of \HypGap{} cycles, between
+\HypGapMin{} and \HypGapMax{} when paired by seed. \textbf{H1 is rejected}, and the service ships the 21-sensor model.
+The 15-sensor arm is identical to the 21-sensor arm: no tree splits on a constant sensor (\AuditConstSplits{} splits).
+Status accuracy is not the headline because the classes are imbalanced: the trivial model scores
+\BaselineTrivialMeanFullTwoOneStatusAccPct{}\% accuracy while catching no CRITICAL machine.
+
+\textbf{Bug audit before the write-up.} The recomputed test errors match the results file for all nine
+checkpoints, each checkpoint holds the arm, seed and feature count its name claims, and the 8-sensor
+columns equal features rebuilt from scratch.
+
+\section{Post hoc analysis}
+Everything in this section was designed after the main result and is labelled post hoc. Each setting
+uses the same model, grid, selection rule and three seeds.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{which_eight.pdf}
+\caption{Test RMSE of every 8-sensor run. The shaded band is the non-inferiority margin above the 21-sensor model.}
+\label{fig:which8}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Which 8 sensors (post hoc except the first two rows).}
+\label{tab:which8}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\resizebox{\columnwidth}{!}{\input{tables/which8.tex}}
+\end{table}
+
+\textbf{Which 8, not how many.} The full model puts \AuditImportanceOutsidePct{}\% of its importance on sensors
+\AuditTopOutside{}, which the ranking left out. Ranking each sensor alone selects sensors that move together:
+the mean absolute correlation between the window means of the 8 ranked sensors is \RedundancyReducedEight{},
+against \RedundancyWorstEight{} for the 8 lowest-ranked ones. Random 8-sensor subsets average
+\RandomEightTestRmse{} cycles over \RandomEightDraws{} draws, better than the ranking. The 8 lowest-ranked
+sensors give \PosthocGbrWorstEightTestRmse{}, inside the margin by a hair that three seeds cannot
+resolve. Forward selection on the validation engines picks sensors \GreedyEightSensors{} and comes within
+\GreedyEightGap{} cycles of the full model (Table~\ref{tab:which8}, Fig.~\ref{fig:which8}). Fewer sensors can
+be enough; a univariate ranking is the wrong way to choose them.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{recipe_sensitivity.pdf}
+\caption{Test RMSE of the 21- and 8-sensor models as the window length and the RUL cap change (post hoc).}
+\label{fig:recipe}
+\end{figure}
+
+\textbf{The recipe is as large as the effect.} The gap between 8 ranked and 21 sensors is \GapWOneZero{}
+cycles with a 10-reading window and \GapWSixZero{} with a 60-reading window, against \HypGap{} at the
+pre-registered \Window{} (Fig.~\ref{fig:recipe}). Moving the 21-sensor model from 30 to 60 readings improves it by
+\WindowEffectFullTwoOne{} cycles, about the size of the sensor effect itself. The rejection holds in every
+setting, but its size depends on the recipe; the main result should be read as conditional on it.
+
+\textbf{The methodological gap.} Splitting rows at random, so that one engine's cycles fall on both sides,
+reports \RowsplitRmse{} cycles RMSE for the same model, \RowsplitOptimismPct{}\% better than the
+engine-level split. All of that is leak.
+
+\section{Operational validation}
+\textbf{Alerts.} The trend rule first specified, an end-to-end drop of more than \OriginalTrendDrop{} cycles over
+\OriginalTrendWindow{} readings,
+fired on the model's reading-to-reading jitter. It passed the one-WARNING-then-one-CRITICAL check on only
+\AlertOriginalPass{} of \SplitVal{} validation engines. A Python simulator of the alert engine, cross-checked against the
+service on every engine, found a Java bug on the way: after a restart the first score was counted twice. The
+slope rule with a warm-up was designed on validation only (\AlertChosenPass{} of \SplitVal{}) and then checked once on the
+test engines: \AlertReplayTestEnginesPassing{} of \AlertReplayTestEngines{} pass. CRITICAL opens on average
+\AlertReplayTestMeanTrueRulAtCritical{} true cycles before failure, and never fewer than
+\AlertReplayTestMinTrueRulAtCritical{}.
+
+\textbf{Kill and restart.} Ingest and processor run as separate processes. The processor is killed mid-stream
+with no shutdown hook and restarted \RestartSecondsDown{}\,s later, while ingest keeps accepting
+(\RestartReadingsWhileDown{} readings arrive meanwhile). All \RestartFileRows{} readings are stored and scored
+exactly once. Every score equals an uninterrupted run (maximum difference \RestartMaxDiff{}), every machine's
+alerts are identical to an uninterrupted run, and \RestartRedeliveredAndIgnoredAsLate{} redelivered messages are
+ignored as late.
+
+\textbf{Throughput.} \LoadTestParagraph
+
+\section{Error analysis}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{embeddings.pdf}
+\caption{Test rows embedded from raw readings, from window features, and from the model's leaf space, coloured by true RUL.}
+\label{fig:emb}
+\end{figure}
+
+Of \EaTestRows{} test rows, \EaMisclassifiedRows{} (\EaMisclassifiedPct{}\%) get the wrong status, all between
+neighbouring statuses. HEALTHY is never predicted CRITICAL, nor the reverse. The most frequent confusion is
+WARNING predicted as HEALTHY (\EaTopConfusionRows{} rows). We inspected \EaInspected{} misclassified rows on
+whole-engine plots: \EaAmbiguous{} are ambiguous, \EaMislabeled{} mislabeled (the labels are exact cycle counts),
+and \EaModel{} are real model errors. These fall into four shapes. The prediction lags on engines that fail
+fast (\EaPatternLagging{}) and runs early near the end of long-lived engines (\EaPatternEarly{}); both
+regress toward the average degradation speed. Single-reading jitter accounts for \EaPatternJitter{}, and in
+\EaPatternPlateau{} the tree output sticks near 60, on the WARNING line. Fig.~\ref{fig:emb} shows that health
+becomes a single direction only after windowing and the model.
+
+\section{Limitations}
+FD001 is one simulated operating condition and fault mode; nothing here shows transfer to other conditions or
+to real engines. Three seeds give a spread, not a confidence interval. The alert rule passes on every held-out
+engine, but on all 100 engines it passes \AllEnginesAlertPass{}: a few training engines close a WARNING and
+reopen it. Throughput was measured on one laptop with every component on it. The system was not deployed to a
+cloud host.
+
+\section{Conclusion}
+A pre-registered test rejected the claim that the 8 top-ranked sensors suffice, and the service ships all 21.
+The post hoc analysis changes what that rejection means. The ranking rule failed, not the idea of fewer sensors,
+and a recipe choice of the same size as the effect means the verdict is conditional. As in other ML
+systems~\cite{sculley2015}, the model was the small part. Most of the defects we caught were in the system
+around it: a trend rule tuned for a clean signal, a double-counted score after restart, a window saved before
+its score, and a test suite that leaked state into the dev Redis.
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{1}
+\bibitem{saxena2008} A.~Saxena, K.~Goebel, D.~Simon, and N.~Eklund, ``Damage propagation modeling for aircraft engine run-to-failure simulation,'' in \emph{Proc. Int. Conf. Prognostics and Health Management (PHM)}, 2008.
+\bibitem{heimes2008} F.~O.~Heimes, ``Recurrent neural networks for remaining useful life estimation,'' in \emph{Proc. Int. Conf. Prognostics and Health Management (PHM)}, 2008.
+\bibitem{kreps2011} J.~Kreps, N.~Narkhede, and J.~Rao, ``Kafka: a distributed messaging system for log processing,'' in \emph{Proc. NetDB Workshop}, 2011.
+\bibitem{pelkonen2015} T.~Pelkonen \emph{et al.}, ``Gorilla: a fast, scalable, in-memory time series database,'' \emph{Proc. VLDB Endowment}, vol.~8, no.~12, 2015.
+\bibitem{sculley2015} D.~Sculley \emph{et al.}, ``Hidden technical debt in machine learning systems,'' in \emph{Advances in Neural Information Processing Systems (NeurIPS)}, 2015.
+\end{thebibliography}
+
+\end{document}

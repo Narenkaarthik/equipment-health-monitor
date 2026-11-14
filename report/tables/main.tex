@@ -1,0 +1,12 @@
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Method & Seeds & Test RMSE & Test MAE & NASA score & Status acc. & Macro-F1 & CRITICAL recall & Official RMSE \\
+\midrule
+trivial (train mean), all 21 sensors & 1 & 41.58 $\pm$ 0.00 & 36.98 $\pm$ 0.00 & 302.35 $\pm$ 0.00 & 0.717 & 0.278 & 0.000 & 41.97 $\pm$ 0.00 \\
+ridge regression, all 21 sensors & 1 & 18.78 $\pm$ 0.00 & 14.26 $\pm$ 0.00 & 7.28 $\pm$ 0.00 & 0.850 & 0.700 & 0.640 & 19.45 $\pm$ 0.00 \\
+ridge regression, 8 ranked sensors & 1 & 20.86 $\pm$ 0.00 & 15.61 $\pm$ 0.00 & 9.21 $\pm$ 0.00 & 0.849 & 0.695 & 0.616 & 21.33 $\pm$ 0.00 \\
+gradient boosting, all 21 sensors & 3 & 12.99 $\pm$ 0.07 & 9.40 $\pm$ 0.09 & 2.86 $\pm$ 0.04 & 0.921 & 0.845 & 0.933 & 13.22 $\pm$ 0.12 \\
+gradient boosting, 15 informative sensors & 3 & 12.99 $\pm$ 0.07 & 9.40 $\pm$ 0.09 & 2.86 $\pm$ 0.04 & 0.921 & 0.845 & 0.933 & 13.22 $\pm$ 0.12 \\
+gradient boosting, 8 ranked sensors & 3 & 15.56 $\pm$ 0.06 & 11.15 $\pm$ 0.07 & 4.35 $\pm$ 0.07 & 0.913 & 0.832 & 0.935 & 15.35 $\pm$ 0.27 \\
+\bottomrule
+\end{tabular}

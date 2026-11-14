@@ -1,0 +1,7 @@
+{
+  "reduced8": 0.967,
+  "worst8": 0.521,
+  "greedy8": 0.617,
+  "informative15": 0.706,
+  "method": "mean |Pearson r| between the window means of every pair of sensors in the set, train engines"
+}

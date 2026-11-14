@@ -1,0 +1,471 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+\graphicspath{{../report/figures/}}
+\input{../report/numbers.tex}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+\setlist{itemsep=0.15em,topsep=0.3em}
+\definecolor{mistake}{HTML}{D03B3B}
+\definecolor{idea}{HTML}{2A78D6}
+\newtcolorbox{mistake}[1]{colback=mistake!4,colframe=mistake!70!black,fonttitle=\bfseries,title={Mistake we caught: #1},breakable}
+\newtcolorbox{keyidea}[1]{colback=idea!4,colframe=idea!70!black,fonttitle=\bfseries,title={Key idea: #1},breakable}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible,frame=single,framerule=0.3pt,rulecolor=\color{gray!50}}
+\newcommand{\pmsd}[2]{#1\,$\pm$\,#2}
+\hyphenation{Post-gre-SQL Micro-meter Test-containers}
+
+\title{\textbf{Learn: building a real-time equipment monitor from scratch}\\[0.4em]
+\large The domain, the tools, the machine learning, the evaluation,\\and every mistake made on the way}
+\author{equipment-health-monitor}
+\date{}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+This tutorial explains, from first principles, everything needed to understand and rebuild the
+\texttt{equipment-health-monitor} project: a Java service that scores the health of turbofan engines from a stream
+of sensor readings and raises alerts. It assumes you can program; it does not assume you know predictive
+maintenance, Spring, Kafka, gradient boosting or experimental design. Every number in it is generated from the
+project's results files, so it can never disagree with the code.
+\end{abstract}
+\tableofcontents
+\newpage
+
+%=====================================================================
+\section{The domain: engines, degradation and remaining useful life}
+
+\subsection{What is being monitored}
+A turbofan engine compresses air, burns fuel in it and expands the hot gas through turbines. Its parts wear:
+blades erode, seals leak, clearances grow. Wear changes how the engine runs long before it fails. Temperatures
+rise a little, pressures shift and fuel flow creeps up. Sensors measure these quantities every flight.
+\emph{Predictive maintenance} uses those measurements to service an engine shortly before it would fail, rather
+than on a fixed calendar (wasteful) or after it fails (dangerous).
+
+\subsection{Remaining useful life}
+The \emph{remaining useful life} (RUL) of an engine at a given cycle is the number of cycles it has left before
+failure. A \emph{cycle} is one flight. If an engine fails after cycle 192, then at cycle 150 its RUL is 42. The
+model's job is to predict RUL from the sensors seen so far.
+
+\subsection{The data: NASA C-MAPSS}
+Real run-to-failure data from real engines is rare and confidential. NASA built a detailed simulator, C-MAPSS,
+and published run-to-failure trajectories from it. Each simulated engine starts with its own unknown initial
+wear and manufacturing variation, then develops a fault that grows until failure. Be precise when you talk
+about it: it is \emph{a NASA benchmark dataset from a physics-based simulation}, not real engine data.
+
+We use subset FD001: one operating condition (sea level) and one fault mode (high-pressure compressor
+degradation). The training file has \EdaEngines{} engines and \EdaRows{} rows. Each row is one cycle of one
+engine: engine id, cycle number, three operating settings and 21 sensor readings. Engines live between
+\EdaLifeMin{} and \EdaLifeMax{} cycles, median \EdaLifeMedian{}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{eda_sensor_traces.pdf}
+\caption{Four sensors of one engine. Single readings are noisy; a rolling mean shows the slow drift that is the
+degradation.}
+\end{figure}
+
+Six sensors (\ConstantSensors{}) never change in FD001; they carry no information. The others drift as the
+engine degrades, buried in noise. That is why the system computes features over a \emph{window} of recent
+readings instead of looking at one reading.
+
+\subsection{The cap on RUL}
+Early in its life an engine is healthy, and its sensors look the same whether it has 300 or 200 cycles left.
+Asking a model to tell those apart is asking it to predict noise. The usual convention for this dataset is to
+cap the label: any RUL above \LabelCap{} is recorded as \LabelCap{}. Read it as ``healthy, at least \LabelCap{} cycles left''.
+In the training data \EdaShareRowsAboveCap{}\% of rows are above the cap.
+
+%=====================================================================
+\section{The CS tooling}
+
+\subsection{The shape of the system}
+\begin{lstlisting}
+replayer --HTTP--> ingest API --> [Kafka topic: readings] --> processor
+                                                               |-> PostgreSQL (readings, scores, alerts)
+                                                               |-> Redis (window per machine)
+                                                               |-> model (ONNX Runtime, in-process)
+                                                               '-> alert engine
+dashboard <--REST + Server-Sent Events-- query API
+\end{lstlisting}
+
+\subsection{Java 21 and Spring Boot}
+Spring Boot assembles an application from \emph{beans}: objects that Spring creates and wires together by
+type. A class annotated \texttt{@RestController} becomes an HTTP endpoint; \texttt{@Configuration} classes
+declare beans with \texttt{@Bean} methods; \texttt{@ConditionalOnProperty} turns a bean on or off from
+configuration. That is how one jar runs as a ``direct'' pipeline (processing inside the request) or a
+``kafka'' pipeline, by a single property. Java 21's \emph{virtual threads} let the replayer run one cheap
+thread per engine.
+
+\subsection{PostgreSQL and Flyway}
+PostgreSQL stores readings, health scores and alerts. Flyway applies numbered SQL migrations
+(\texttt{V1\_\_machines.sql}, \ldots) on startup, so the schema is versioned with the code. The key design
+choice: the primary key of \texttt{readings} is \texttt{(machine\_id, cycle)}. Inserting the same reading
+twice with \texttt{ON CONFLICT DO NOTHING} is harmless, which makes retries safe.
+
+\subsection{Redis}
+Redis is an in-memory key-value store. The processor keeps each machine's last \Window{} readings there
+(\texttt{window:\{id\}}), so a restart does not forget them.
+
+\subsection{Kafka}
+Kafka is a durable, partitioned log. Producers append messages to a \emph{topic}; consumers read them at their
+own pace and record how far they got (the \emph{offset}). A topic is split into \emph{partitions}; Kafka keeps
+order only within one partition. Messages with the same \emph{key} go to the same partition, so keying by
+machine id keeps each machine's readings in order while different machines are processed in parallel.
+
+\begin{keyidea}{at-least-once delivery}
+The consumer commits an offset only after it has processed the message. If it crashes in between, the message
+is delivered again. So the processor must be \emph{idempotent}: processing a message twice must change
+nothing. Primary keys on \texttt{(machine, cycle)} and the ``ignore late cycles'' rule make it so.
+\end{keyidea}
+
+\subsection{ONNX and ONNX Runtime}
+ONNX is a file format for trained models. We train in Python (scikit-learn), export with \texttt{skl2onnx}, and
+load the file in Java with ONNX Runtime. A \emph{parity test} checks that Java and Python give the same
+prediction for the same input; without it you might ship a different model from the one you validated.
+
+\subsection{Testing: JUnit, Testcontainers, pytest}
+Unit tests check one class with hand-computed values. Integration tests start the whole application against a
+real PostgreSQL, Redis and Kafka; Testcontainers starts them in Docker for the test, or the tests point at
+local services when Docker is absent. pytest checks the Python invariants: no engine leaks between splits, the
+features equal a slow reference, the metrics equal hand-computed values, the ONNX file equals sklearn.
+
+\subsection{k6, Micrometer, Server-Sent Events}
+k6 is a load generator scripted in JavaScript; it reports throughput and latency percentiles. Micrometer
+exposes counters and timers from inside the service (readings ingested, processing lag, inference time).
+Server-Sent Events (SSE) keep one HTTP response open and push named events down it; the dashboard listens
+with \texttt{EventSource}.
+
+%=====================================================================
+\section{Classical machine learning}
+
+\subsection{Supervised regression}
+Given examples $(x_i, y_i)$, learn a function $f$ with $f(x) \approx y$ on \emph{new} examples. Here $x$ is the
+feature vector of one machine at one cycle and $y$ its capped RUL.
+
+\subsection{Features from a sliding window}
+For each sensor we keep the last $W=\Window{}$ values $v_1, \dots, v_n$ ($n \le W$) and compute
+\[
+\bar v = \frac1n\sum v_k,\qquad
+s = \sqrt{\frac1n\sum (v_k-\bar v)^2},\qquad
+b = \frac{\sum (k-\bar k)(v_k-\bar v)}{\sum (k-\bar k)^2}.
+\]
+The mean $\bar v$ says where the sensor is, the standard deviation $s$ how noisy it is, and the slope $b$ how
+fast it is moving.
+
+\begin{keyidea}{the sliding window in O(1)}
+Re-summing $W$ values for every new reading costs $O(W)$. Instead keep running sums $\sum v$, $\sum v^2$ and
+$\sum k\,v$; when a value enters and one leaves, update the sums with a few additions and subtractions. Mean,
+variance and slope follow from the sums in constant time. Two details make it correct in practice: subtract
+an offset (the first value) so that sums of numbers near 9000 do not lose precision, and rebuild the sums from
+the buffer every 1024 updates so rounding errors cannot accumulate.
+\end{keyidea}
+
+\subsection{Baselines}
+Always compare with something trivial. The \emph{trivial} model predicts the mean training RUL for everyone;
+its error is the ceiling any useful model must beat by a wide margin. \emph{Ridge regression} is a linear model
+with a penalty on large weights; it is the simplest real model.
+
+\subsection{Decision trees and gradient boosting}
+A regression tree splits the data by questions like ``is the mean of sensor 11 above 47.6?'' and predicts the
+average label in each leaf. One tree is crude. \emph{Gradient boosting} fits trees one after another; each new
+tree predicts what the ensemble so far gets wrong (the residual), and is added with a small weight (the
+learning rate). Hundreds of small trees make a strong, non-linear model. Its key knobs are the number of trees,
+the learning rate, the tree depth and the fraction of rows each tree sees (subsample). Because the trees are
+added in order, the model with the first $n$ trees is exactly the model you would get by training $n$ trees,
+which makes choosing $n$ on validation cheap.
+
+\subsection{Overfitting and validation}
+A model can memorise its training data. To choose anything (the number of trees, the sensors, the alert
+thresholds), measure on data the model did not train on: the \emph{validation} split. Keep a third split, the
+\emph{test} split, untouched until the very end, so that the final number is not shaped by your choices.
+
+%=====================================================================
+\section{Deep learning, and why it is not used here}
+
+\subsection{Neural networks in one page}
+A neural network is a stack of layers; each computes $h = \sigma(Wx + b)$, a linear map followed by a
+non-linear function $\sigma$. Training adjusts $W$ and $b$ by gradient descent on a loss (for regression, the
+mean squared error), with gradients computed by backpropagation. For sequences there are dedicated
+architectures: recurrent networks (LSTM, GRU) carry a state from one time step to the next; one-dimensional
+convolutions slide learned filters along time; transformers let every step attend to every other step.
+
+\subsection{Deep learning on C-MAPSS}
+The RUL literature on this dataset includes many LSTM and CNN models that read a window of raw readings
+and learn their own features. They can be competitive with a well-featured tree model, at the cost of more
+hyper-parameters, more training time, more seeds needed to average out their variance, and a harder export and
+parity story.
+
+\subsection{Why gradient boosting here}
+The question of this project is about sensors and systems, not about the best possible model. A tree ensemble
+on explicit window features is fast to train (seconds to minutes), deterministic given a seed, exports cleanly
+to ONNX, scores in \JavaUsPerPrediction{}\,\textmu s in Java, and its importance can be read per sensor, which
+is exactly what the sensor question needs. A neural model would be a reasonable extension, evaluated under the
+same split, seeds and budget.
+
+%=====================================================================
+\section{The method under test: sensor reduction}
+
+\subsection{The question}
+Every sensor is hardware, wiring and a failure mode. If 8 sensors predict RUL as well as 21, the service should
+run on 8. The project asks this before building the final model, and answers it with a controlled experiment.
+
+\subsection{The three arms}
+\begin{itemize}
+\item \textbf{all 21 sensors};
+\item \textbf{15 informative sensors}: drop the constant ones (\InformativeSensors{} remain);
+\item \textbf{8 ranked sensors}: the 8 sensors whose window mean has the largest absolute Spearman correlation with
+RUL on the \emph{training} engines: \ReducedEightSensors{}.
+\end{itemize}
+Everything else is identical: split, window, label, model, hyper-parameters, the grid of tree counts, the
+selection rule and the seeds. An experiment that changes two things at once cannot tell you which mattered.
+
+\subsection{Non-inferiority}
+``As good as'' needs a definition. We fixed a margin: the 8-sensor model may be worse by less than \Margin{}
+cycle of mean test RMSE. That is a \emph{non-inferiority} hypothesis. Without a margin, any difference, however
+tiny, would count as ``worse'', and any non-significant difference would be misread as ``the same''.
+
+%=====================================================================
+\section{Evaluation methodology}
+
+\subsection{Group-aware splits}
+Consecutive cycles of one engine are almost identical. If cycles of the same engine land in both training and
+test, the model is tested on near-copies of its training data, and the score is a lie. So the split is by
+engine: \SplitTrain{} training, \SplitVal{} validation and \SplitTest{} test engines, frozen in a JSON file, with a
+test that fails if any engine appears twice.
+
+\begin{keyidea}{how big is the lie?}
+We measured it (post hoc). The same model, evaluated on a random split of \emph{rows}, reports
+\RowsplitRmse{} cycles of RMSE. Evaluated honestly, on unseen \emph{engines}, it gets \MainGbrFullTwoOneTestRmse{}.
+The leaky number is \RowsplitOptimismPct{}\% too optimistic.
+\end{keyidea}
+
+\subsection{Pre-registration}
+Before the first main result existed, every choice was written into \texttt{model/config/experiment.json} and
+committed: split, metric, window, cap, model, hyper-parameters, tree grid, selection rule, seeds, the hypothesis
+with its margin, and the deployment rule. Pre-registration removes the temptation to change the recipe until the
+result looks good. What was decided later is labelled \emph{post hoc} everywhere.
+
+\subsection{Metrics: RMSE, and why not accuracy}
+The headline is root mean squared error of RUL in cycles. The service turns RUL into a status, HEALTHY,
+WARNING or CRITICAL, so we also report status accuracy, macro-F1 and CRITICAL recall. Accuracy misleads on an
+imbalanced label: most rows are HEALTHY, so the trivial model scores \BaselineTrivialMeanFullTwoOneStatusAccPct{}\%
+accuracy while catching no CRITICAL machine (recall \BaselineTrivialMeanFullTwoOneCriticalRecall{}). Macro-F1
+averages the score over the three statuses, so it punishes ignoring the rare ones.
+
+\subsection{Seeds and budget}
+Random choices (which rows each tree sees) change the result a little. Each arm was trained with
+\NSeeds{} seeds, and we report mean $\pm$ standard deviation. Every arm had the same budget: the same grid of tree
+counts, chosen by the same rule on validation only.
+
+\subsection{Read the test split once}
+The test engines are scored once per finished run, at the configuration chosen on validation. If you look at the
+test score and then change something, the test split has become a validation split, and you no longer have an
+unbiased number.
+
+%=====================================================================
+\section{Build diary, block by block}
+
+\subsection{Block 0: environment, data, exploration}
+Installed a portable toolchain (JDK 21, Maven, PostgreSQL, Redis, Kafka, k6), downloaded FD001, checked it by
+eye and by count: \EdaEngines{} engines, \EdaRows{} rows, contiguous cycles, no duplicates, six constant
+sensors. Built the Spring Boot skeleton with a health check and the first migration.
+
+\begin{mistake}{zero tests ran, and the build said success}
+Maven's test runner only picks up classes named \texttt{*Test} by default; our integration tests are
+\texttt{*IT}. The first ``green'' build ran nothing. Fix: include \texttt{*IT.java} explicitly, and always read
+the test count, not just the word SUCCESS.
+\end{mistake}
+
+\begin{mistake}{servers that died with the session}
+Databases started from a tool call died when the session ended, and one received a Ctrl+C meant for its parent.
+Fix: start them detached, in their own process group, from a script; stop processes only by PID.
+\end{mistake}
+
+\subsection{Block 1: ingest, storage, replayer, frozen split}
+\texttt{POST /api/readings} validates and stores; the replayer streamed all 100 engines; the database held
+exactly as many rows as the file, and a second replay changed nothing. The engine split was frozen with a leak
+test.
+
+\subsection{Block 2: features, pre-registration, baselines}
+\begin{mistake}{fast features that were wrong}
+The first vectorised feature code used running sums on raw values near 9000. Variance computed as
+$\overline{v^2} - \bar v^2$ lost almost all its digits, and the test against a slow reference failed. Fix: compute
+each window directly (two passes) in Python, and in Java keep sums relative to an offset and resynchronise them
+periodically.
+\end{mistake}
+
+\begin{mistake}{an arm named after the wrong count}
+The ``informative'' arm was planned as 14 sensors, but the rule (standard deviation above $10^{-6}$ on training
+engines) keeps sensor 6, which is nearly but not exactly constant: 15 sensors. The arm was renamed before any
+result, instead of quietly changing the rule to match the name.
+\end{mistake}
+
+\subsection{Block 3: the main experiment}
+Nine runs (three arms, three seeds) went through a resumable queue that skips finished runs and writes a status
+file, launched detached after profiling one short fit. The result is in Section~\ref{sec:read}.
+
+\begin{mistake}{the double-precision model that could not run}
+The plan was to export the trees with double-precision input, so that no threshold is rounded. ONNX Runtime's
+tree operator cannot produce double output, so the session failed to load. Fix: float32 input, with the error it
+introduces measured and bounded by the parity test.
+\end{mistake}
+
+\begin{mistake}{trust, then verify, a surprising result}
+Before writing anything, every checkpoint was reloaded, every test score recomputed from it, and the 8-sensor
+columns rebuilt from scratch. The surprising identity of the 15- and 21-sensor models turned out to be exact
+and explainable: no tree ever splits on a constant sensor (\AuditConstSplits{} splits).
+\end{mistake}
+
+\subsection{Block 4: alerts}
+\begin{mistake}{an alert rule that fired on noise}
+The first trend rule (RUL fell more than \OriginalTrendDrop{} over \OriginalTrendWindow{} readings) compared two
+single predictions. Predictions jitter by several cycles from one reading to the next, so the rule kept opening and
+closing WARNING alerts: only \AlertOriginalPass{} of \SplitVal{} validation engines produced the required single
+WARNING then single CRITICAL. Fix, designed on validation only: fit a least-squares slope over
+\AlertTrendWindow{} readings, require a full window before any alert, and confirm once on the test engines
+(\AlertReplayTestEnginesPassing{} of \AlertReplayTestEngines{}).
+\end{mistake}
+
+\begin{mistake}{the first score, counted twice}
+To design the rule quickly, the alert engine was re-implemented in Python and checked against the Java service
+engine by engine. Three engines disagreed. The cause was in Java: after a restart the engine rebuilt its recent
+scores from the database, which already contained the score being evaluated, so that score was counted twice.
+\end{mistake}
+
+\begin{mistake}{tests that poisoned the dev database}
+Integration tests wrote windows into the same Redis database the dev service used. A later replay found machine
+9 ``already at cycle 40'' and ignored its first 40 readings as late. Fix: tests use their own Redis database and
+their own Kafka topic.
+\end{mistake}
+
+\subsection{Block 5: Kafka, crash safety, error analysis}
+\begin{mistake}{saving the window before the score}
+The processor saved the machine's window to Redis \emph{before} storing the score. A crash between the two would
+make the redelivered reading look late, and its score would never be written. Fix: save after the score and
+alerts; on any failure, drop the in-memory window so the retry starts from the last saved state.
+\end{mistake}
+
+\begin{mistake}{deleting a topic killed the broker}
+On Windows, Kafka cannot rename the folder of a deleted topic while files in it are open, and it shuts itself
+down. Fix: never delete topics in experiments; use a fresh topic name per run.
+\end{mistake}
+
+The kill-and-restart experiment then passed: all \RestartFileRows{} readings stored and scored exactly once, scores
+equal to an uninterrupted run within \RestartMaxDiff{}, and alerts identical to an uninterrupted run on every
+machine.
+
+\subsection{Block 6: dashboard, load test, write-up}
+\begin{mistake}{a demo that showed nothing}
+The dashboard said ``live'' but showed no predictions. A reset script had deleted the database rows but not the
+Redis windows: \texttt{redis-cli} on Windows prints keys with a carriage return, so the shell loop deleted
+nothing, and every reading was correctly ignored as late. Fix: one reset script that clears both stores and
+asserts nothing is left.
+\end{mistake}
+
+%=====================================================================
+\section{How to read the results}\label{sec:read}
+
+\subsection{The pre-registered answer}
+\begin{center}
+\resizebox{\textwidth}{!}{\input{../report/tables/main.tex}}
+\end{center}
+All 21 sensors: \pmsd{\MainGbrFullTwoOneTestRmse}{\MainGbrFullTwoOneTestRmseStd} cycles RMSE. The 8 ranked sensors:
+\pmsd{\MainGbrReducedEightTestRmse}{\MainGbrReducedEightTestRmseStd}. The gap is \HypGap{} cycles, larger than the
+\Margin{}-cycle margin, so the hypothesis is rejected and the service ships the 21-sensor model. Read the
+$\pm$ as the spread over seeds, not as a confidence interval.
+
+\subsection{What the post hoc ablations add}
+\begin{itemize}
+\item \textbf{Which 8 matters.} The ranked 8 are highly redundant (mean pairwise correlation
+\RedundancyReducedEight{}). Random sets of 8 do better on average (\RandomEightTestRmse{}), the 8
+\emph{lowest}-ranked sensors land at \PosthocGbrWorstEightTestRmse{}, and forward selection on validation reaches
+\PosthocGbrGreedyEightTestRmse{}, within \GreedyEightGap{} of the full model.
+\item \textbf{The recipe matters as much.} Changing the window from 30 to 60 readings improves the 21-sensor
+model by \WindowEffectFullTwoOne{} cycles, about the size of the sensor effect. The verdict holds in every
+setting tried, but its size depends on the recipe.
+\end{itemize}
+
+\begin{keyidea}{a negative result with a positive lesson}
+The pre-registered experiment says ``no''. The ablations say why. Ranking sensors one at a time picks sensors that
+repeat each other. Fewer sensors can work if they are chosen together. That is a hypothesis for a new
+pre-registered experiment, not a conclusion of this one.
+\end{keyidea}
+
+\subsection{Errors by hand}
+Of \EaTestRows{} test rows, \EaMisclassifiedRows{} get the wrong status, always a neighbouring one. Looking at
+\EaInspected{} of them on whole-engine plots: \EaAmbiguous{} ambiguous, \EaMislabeled{} mislabeled, \EaModel{}
+real errors. The real errors come in four shapes. The model lags on engines that fail fast, runs early near the
+end of long-lived engines, jitters, and sometimes sticks at a tree leaf near 60.
+
+%=====================================================================
+\section{Interview questions, with answers}
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Walk me through one reading, end to end.} Validated, inserted with \texttt{ON CONFLICT DO NOTHING},
+published to Kafka keyed by machine and acknowledged, then consumed. The machine's window is updated in $O(1)$,
+63 features feed the ONNX model, and the score is stored. The alert engine evaluates it, the window is saved to
+Redis, and SSE pushes the update to the dashboard.
+\item \textbf{The same reading arrives twice? Out of order?} Twice: the primary key makes the insert a no-op and
+the processor sees a cycle that is not newer, so it is ignored. Out of order: a late cycle is ignored and
+counted; a gap is accepted and logged.
+\item \textbf{The processor crashes. What is lost?} Nothing. Offsets are committed after processing, the window is
+saved after the score, and every write is idempotent. The kill-and-restart test shows identical scores and alerts.
+\item \textbf{10,000 machines?} Partitions bound processing parallelism: add partitions and processor instances.
+PostgreSQL writes are next: batch score inserts and partition \texttt{readings} by time. Redis is about 6 KB per
+machine. The SSE stream must be sampled.
+\item \textbf{Why PostgreSQL, and when would you switch?} The hot window is in Redis, and the rest is relational
+(alerts with state). Switch, or add TimescaleDB, when retention by time or wide time-range scans dominate.
+\item \textbf{Deploy a new model without downtime?} Export, run the parity test, ship the jar, roll the
+instances. Every score stores its model version, so the two versions can be compared side by side.
+\item \textbf{How do you know Java matches Python?} A parity test on \ParityRows{} real test rows within
+$10^{\CfgParityTolExp}$, plus a feature fixture within $10^{\CfgFeatureTolExp}$.
+\item \textbf{Which index did you add, and why?} A partial index on open alerts; the primary key
+\texttt{(machine\_id, cycle)} already serves every chart query.
+\item \textbf{What causes the p99?} See the load-test report: what the slowest requests wait on is measured,
+not guessed.
+\item \textbf{Why is accuracy not your headline?} Because a model that always says HEALTHY scores
+\BaselineTrivialMeanFullTwoOneStatusAccPct{}\%.
+\item \textbf{What would you do differently?} Pre-register the sensor \emph{selection method} as an arm of its own,
+and choose the window on validation before the main comparison.
+\end{enumerate}
+
+%=====================================================================
+\section{Glossary}
+\begin{description}[leftmargin=2.2cm,style=nextline]
+\item[Ablation] Removing or changing one part of a recipe to see how much it matters.
+\item[At-least-once] A delivery guarantee: a message may arrive more than once, never zero times.
+\item[Baseline] A simple model every real model must clearly beat.
+\item[C-MAPSS] NASA's turbofan simulator and its published run-to-failure datasets.
+\item[Cap (RUL)] Recording every RUL above a limit as the limit (\LabelCap{} here).
+\item[Consumer group] Kafka consumers sharing the work of reading a topic; each partition goes to one member.
+\item[Dead-letter topic] Where messages that fail repeatedly are parked for a human.
+\item[Flyway] A tool that applies versioned SQL migrations.
+\item[Gradient boosting] An ensemble of small trees, each fitted to the errors of the ones before.
+\item[Group-aware split] A split that keeps all samples of one source (here, one engine) on one side.
+\item[Hysteresis] Requiring a margin beyond a threshold before a condition counts as cleared, so it cannot flap.
+\item[Idempotent] Doing it twice has the same effect as doing it once.
+\item[Leak] Information from the test set reaching training or selection.
+\item[Macro-F1] The F1 score averaged equally over classes.
+\item[Non-inferiority] ``Not worse by more than a fixed margin.''
+\item[Offset] A consumer's position in a Kafka partition.
+\item[ONNX] An open file format for trained models.
+\item[Parity test] A test that two implementations give the same output on the same input.
+\item[Post hoc] Decided after seeing results.
+\item[Pre-registration] Writing down the whole recipe before seeing any result.
+\item[RMSE] Root mean squared error: the typical size of an error, in the label's units.
+\item[RUL] Remaining useful life, in cycles.
+\item[Seed] The number that fixes a run's random choices.
+\item[SSE] Server-Sent Events: a one-way stream of named events over HTTP.
+\item[Testcontainers] A library that starts real dependencies in Docker for a test.
+\end{description}
+
+\end{document}

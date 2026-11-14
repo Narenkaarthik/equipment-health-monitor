@@ -1,0 +1,35 @@
+Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.5.16)
+
+2026-11-14T17:45:51.906+05:30  INFO 33608 --- [equipment-monitor] [           main] dev.eqmon.MonitorApplication             : Starting MonitorApplication v0.1.0-SNAPSHOT using Java 21.0.13 with PID 33608 (A:\monitor\service\target\service-0.1.0-SNAPSHOT.jar started by snare in A:\monitor)
+2026-11-14T17:45:51.911+05:30  INFO 33608 --- [equipment-monitor] [           main] dev.eqmon.MonitorApplication             : No active profile set, falling back to 1 default profile: "default"
+2026-11-14T17:45:53.451+05:30  INFO 33608 --- [equipment-monitor] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-11-14T17:45:53.451+05:30  INFO 33608 --- [equipment-monitor] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-11-14T17:45:53.505+05:30  INFO 33608 --- [equipment-monitor] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 27 ms. Found 0 Redis repository interfaces.
+2026-11-14T17:45:54.577+05:30  INFO 33608 --- [equipment-monitor] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-14T17:45:54.593+05:30  INFO 33608 --- [equipment-monitor] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-14T17:45:54.598+05:30  INFO 33608 --- [equipment-monitor] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.55]
+2026-11-14T17:45:54.654+05:30  INFO 33608 --- [equipment-monitor] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-11-14T17:45:54.655+05:30  INFO 33608 --- [equipment-monitor] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2689 ms
+2026-11-14T17:45:55.605+05:30  INFO 33608 --- [equipment-monitor] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-11-14T17:45:55.810+05:30  INFO 33608 --- [equipment-monitor] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@7d6c4079
+2026-11-14T17:45:55.813+05:30  INFO 33608 --- [equipment-monitor] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-11-14T17:45:55.855+05:30  INFO 33608 --- [equipment-monitor] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/monitor (PostgreSQL 17.6)
+2026-11-14T17:45:55.942+05:30  INFO 33608 --- [equipment-monitor] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 4 migrations (execution time 00:00.050s)
+2026-11-14T17:45:55.977+05:30  INFO 33608 --- [equipment-monitor] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 4
+2026-11-14T17:45:55.980+05:30  INFO 33608 --- [equipment-monitor] [           main] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-11-14T17:45:57.430+05:30  INFO 33608 --- [equipment-monitor] [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-11-14T17:45:58.562+05:30  INFO 33608 --- [equipment-monitor] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 4 endpoints beneath base path '/actuator'
+2026-11-14T17:45:58.757+05:30  INFO 33608 --- [equipment-monitor] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-11-14T17:45:58.791+05:30  INFO 33608 --- [equipment-monitor] [           main] dev.eqmon.MonitorApplication             : Started MonitorApplication in 7.514 seconds (process running for 8.213)
+2026-11-14T17:45:59.710+05:30  INFO 33608 --- [equipment-monitor] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-11-14T17:45:59.710+05:30  INFO 33608 --- [equipment-monitor] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-11-14T17:45:59.710+05:30  INFO 33608 --- [equipment-monitor] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms

@@ -1,0 +1,18 @@
+{
+  "prereg_commit": "b5acfb9",
+  "changed_fields": [
+    "deployment_rule",
+    "onnx"
+  ],
+  "fields_affecting_training_or_evaluation": [],
+  "added_after_prereg": {
+    "deployment_rule": "The service ships the reduced8 model if H1 holds (gap < 1.0 RMSE), otherwise full21; always seed 0 of that arm at its selected n_estimators. Decided before any main run; recorded here as a pre-registration amendment in the Block 3 commit.",
+    "onnx": {
+      "input_type": "float",
+      "opset_ml": 3,
+      "converter": "skl2onnx",
+      "note": "amended in Block 3: ONNX Runtime's TreeEnsembleRegressor only outputs float32, so the double path cannot run; float32 input measured at max |diff| 2.7e-5 vs sklearn on 300 rows, inside the 1e-3 tolerance"
+    }
+  },
+  "verdict": "recipe unchanged"
+}

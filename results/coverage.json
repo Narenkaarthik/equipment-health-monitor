@@ -1,0 +1,13 @@
+{
+  "processing_alerts": 92.1,
+  "overall": 91.8,
+  "root": 33.3,
+  "alerts": 92.9,
+  "config": 96.6,
+  "ingest": 91.1,
+  "machines": 81.8,
+  "model": 93.9,
+  "processing": 91.5,
+  "query": 94.7,
+  "stream": 86.5
+}

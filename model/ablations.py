@@ -178,4 +178,7 @@ def run_rowsplit() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    if "--rowsplit-only" in sys.argv:
+        run_rowsplit()
+    else:
+        main()

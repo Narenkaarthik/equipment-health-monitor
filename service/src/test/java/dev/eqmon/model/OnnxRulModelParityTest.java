@@ -72,6 +72,9 @@ class OnnxRulModelParityTest {
         }
         double usPerCall = (System.nanoTime() - t0) / 1e3 / n;
         System.out.printf("inference: %.1f us per prediction%n", usPerCall);
+        // picked up by scripts/collect_build_facts.py so documents never carry a hand-typed timing
+        java.nio.file.Files.writeString(java.nio.file.Path.of("target", "java_inference.json"),
+                String.format(java.util.Locale.ROOT, "{\"us_per_prediction\": %.2f, \"predictions_timed\": %d}%n", usPerCall, n));
         assertThat(usPerCall).isLessThan(5000.0); // "within a few milliseconds"; typically tens of microseconds
         model.close();
     }
