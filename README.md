@@ -113,7 +113,9 @@ and with three seeds that edge is not a finding.
 | window 10          | 17.79 ± 0.04 | 19.01 ± 0.04       |  1.22 | no           |
 | window 30 (recipe) | 12.99 ± 0.07 | 15.56 ± 0.06       |  2.57 | no           |
 | window 60          | 11.16 ± 0.11 | 12.91 ± 0.01       |  1.75 | no           |
+| cap 100            | 8.42 ± 0.06  | 10.26 ± 0.10       |  1.84 | no           |
 | cap 125 (recipe)   | 12.99 ± 0.07 | 15.56 ± 0.06       |  2.57 | no           |
+| cap 150            | 19.14 ± 0.05 | 21.35 ± 0.12       |  2.21 | no           |
 
 ![Recipe sensitivity](report/figures/recipe_sensitivity.png)
 
@@ -121,6 +123,12 @@ The 8 ranked sensors never reach the margin, but the size of the gap depends on 
 window length alone moves the 21-sensor error by 1.83 cycles, about as much as
 the sensor reduction does. **Read the main result as "under this recipe", not as a property of the sensors.**
 
+### The methodological gap (post hoc)
+
+Splitting rows at random, so that cycles of one engine land in both training and test, reports
+10.08 cycles RMSE for the same model. That is 2.91 cycles
+(22%) better than the honest engine-level split, and all of it is leak.
+`tests/test_split.py` fails if any engine appears in two splits.
 
 ### The service
 
@@ -134,6 +142,19 @@ the sensor reduction does. **Read the main result as "under this recipe", not as
 | Stage 5: scores and alerts identical to an uninterrupted run | max score difference 9e−05; 0 machines differ |
 | Tests | 55 Java, 16 Python, all passing |
 | Line coverage, processing and alert code | 92.1% |
+
+**Throughput:** 4984 readings per second at p95 latency of 19.4 ms
+(p99 33.7 ms) on a laptop, k6 against `POST /api/readings`.
+
+| Run    | Pipeline   |   Users |   Batch |   Readings/s |   p50 ms |   p95 ms |   p99 ms |   Pool waits | Change             |
+|:-------|:-----------|--------:|--------:|-------------:|---------:|---------:|---------:|-------------:|:-------------------|
+| before | direct     |      50 |       1 |         4235 |     9.51 |    21.8  |    36.11 |        32.85 |                    |
+| after  | direct     |      50 |       1 |         4984 |     7    |    19.4  |    33.7  |         1.39 | MONITOR_DB_POOL=40 |
+| kafka  | kafka      |      50 |       1 |         4606 |     7.8  |    20.43 |    34.12 |         3.52 | MONITOR_DB_POOL=40 |
+
+![Load test](report/figures/loadtest.png)
+
+Details, the bottleneck found and the fix: [`docs/load-test-report.md`](docs/load-test-report.md).
 
 ## Error analysis
 

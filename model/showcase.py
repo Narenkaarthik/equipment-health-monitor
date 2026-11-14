@@ -39,22 +39,31 @@ def card(i: int, title: str, lines: list[tuple[str, str, float]], image: str | N
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.text(0.07, 0.93, f"{i}/7", color=MUTED, fontsize=20, va="top")
-    ax.text(0.07, 0.86, title, color=FG, fontsize=40, fontweight="bold", va="top", wrap=True)
-    y = 0.72
+    ax.text(0.07, 0.86, title, color=FG, fontsize=40, fontweight="bold", va="top")
+    # body starts below however many lines the title takes
+    y = 0.86 - 0.075 * (title.count("\n") + 1) - 0.05
     if big:
         ax.text(0.07, y, big, color=ACCENT, fontsize=110, fontweight="bold", va="top")
         ax.text(0.07, y - 0.17, big_label, color=FG, fontsize=24, va="top")
         y -= 0.26
+    import textwrap
+
     for text, color, size in lines:
-        ax.text(0.07, y, text, color={"fg": FG, "accent": ACCENT, "warn": WARN, "crit": CRIT, "muted": MUTED}[color],
-                fontsize=size, va="top")
-        y -= 0.022 * size / 10 + 0.035
+        # wrap to the card width: about 930 px of text, a glyph is about 0.6 em wide
+        width = int(930 / (0.52 * size * 100 / 72))
+        for k, part in enumerate(textwrap.wrap(text, width=width)):
+            ax.text(0.07, y, ("   " if k else "") + part,
+                    color={"fg": FG, "accent": ACCENT, "warn": WARN, "crit": CRIT, "muted": MUTED}[color], fontsize=size, va="top")
+            y -= 0.0145 * size / 10 + 0.02
+        y -= 0.008 * size / 10 + 0.015
     if image:
         img = mpimg.imread(FIG / image)
-        h = 0.36 if y > 0.45 else 0.3
-        iax = fig.add_axes([0.07, 0.09, 0.86, h])
+        top, bottom = y - 0.01, 0.08  # the image fills the space left under the text
+        assert top - bottom > 0.18, f"card {i}: no room left for the image"
+        iax = fig.add_axes([0.07, bottom, 0.86, top - bottom])
         iax.imshow(img)
         iax.set_axis_off()
+    assert y > 0.08, f"card {i}: text runs into the footer (y={y:.3f})"
     ax.text(0.07, 0.035, REPO, color=MUTED, fontsize=16)
     return fig
 
@@ -64,9 +73,9 @@ def main() -> None:
     plt.rcParams.update({"font.family": "DejaVu Sans"})
     figs = [
         card(1, "I built a real-time engine\nhealth monitor, then asked\nif it needs fewer sensors.",
-             [("Java 21 · Spring Boot · Kafka · PostgreSQL · Redis", "muted", 22),
-              ("ONNX model in the loop · live dashboard · k6 load tests", "muted", 22),
-              ("The data: NASA C-MAPSS, a simulated turbofan benchmark", "fg", 22)], image="alert_timeline.png"),
+             [("Java 21 · Spring Boot · Kafka · PostgreSQL · Redis", "muted", 19),
+              ("ONNX model in the loop · live dashboard · k6 load tests", "muted", 19),
+              ("The data: NASA C-MAPSS, a simulated turbofan benchmark", "fg", 19)], image="alert_timeline.png"),
         card(2, "The question, written\ndown before any result",
              [("Can 8 of the 21 sensors predict remaining", "fg", 26), ("useful life as well as all 21?", "fg", 26),
               (f"Non-inferiority margin: {N['margin']} cycle of RMSE", "accent", 26),
@@ -78,29 +87,29 @@ def main() -> None:
             (f"So the service ships all 21, as the pre-registered rule says.", "muted", 22)],
             big=f"+{N['hyp_gap']}", big_label=f"cycles worse, against a {N['margin']}-cycle margin"),
         card(4, "But it's which 8,\nnot how many.", [
-            (f"8 picked by forward selection: +{N['greedy8_gap']} (inside the margin)", "accent", 24),
-            (f"8 lowest-ranked sensors: +{N['worst8_gap']}", "fg", 24),
-            (f"The ranked 8 move together: correlation {N['redundancy_reduced8']}", "warn", 24),
-            ("(post hoc: a hypothesis for the next experiment)", "muted", 20)], image="which_eight.png"),
+            (f"8 picked by forward selection: +{N['greedy8_gap']} (inside the margin)", "accent", 18),
+            (f"8 lowest-ranked sensors: +{N['worst8_gap']}", "fg", 18),
+            (f"The ranked 8 move together: correlation {N['redundancy_reduced8']}", "warn", 18),
+            ("(post hoc: a hypothesis for the next experiment)", "muted", 18)], image="which_eight.png"),
         card(5, "The recipe was as big\nas the effect.", [
-            (f"Window 30 to 60 readings: {N['window_effect_full21']} cycles better", "fg", 26),
-            (f"Sensor gap at window 10 / 30 / 60:", "fg", 26),
-            (f"{N['gap_w10']} / {N['hyp_gap']} / {N['gap_w60']} cycles", "accent", 30),
-            ("The verdict holds everywhere; its size does not.", "muted", 22)], image="recipe_sensitivity.png"),
+            (f"Window 30 to 60 readings: {N['window_effect_full21']} cycles better", "fg", 21),
+            (f"Sensor gap at window 10 / 30 / 60:", "fg", 21),
+            (f"{N['gap_w10']} / {N['hyp_gap']} / {N['gap_w60']} cycles", "accent", 18),
+            ("The verdict holds everywhere; its size does not.", "muted", 19)], image="recipe_sensitivity.png"),
         card(6, "Kill the processor\nmid-stream. Lose nothing.", [
-            (f"{N['restart_readings_rows']} readings stored, {N['restart_health_scores_rows']} scored, of {N['restart_file_rows']}", "fg", 26),
-            (f"Scores equal an uninterrupted run (max diff {N['restart_max_diff']})", "fg", 24),
-            (f"Alerts identical on all {N['restart_machines']} machines", "fg", 24),
+            (f"{N['restart_readings_rows']} readings stored, {N['restart_health_scores_rows']} scored, of {N['restart_file_rows']}", "fg", 23),
+            (f"Scores equal an uninterrupted run (max diff {N['restart_max_diff']})", "fg", 22),
+            (f"Alerts identical on all {N['restart_machines']} machines", "fg", 22),
             (f"Held-out engines to failure: {N['alert_replay_test_engines_passing']}/{N['alert_replay_test_engines']} give one WARNING, then one CRITICAL", "accent", 22),
-            (f"CRITICAL opens {N['alert_replay_test_mean_true_rul_at_critical']} cycles before failure on average", "muted", 22)]),
+            (f"CRITICAL opens {N['alert_replay_test_mean_true_rul_at_critical']} cycles before failure on average", "muted", 20)]),
         card(7, "The model was the\nsmall part.", [
-            ("Bugs caught by testing the system, not the model:", "fg", 24),
-            ("· an alert rule that fired on prediction jitter", "warn", 22),
-            ("· a score counted twice after a restart", "warn", 22),
-            ("· a window saved before its score (crash = lost score)", "warn", 22),
-            ("· tests leaking state into the dev Redis", "warn", 22),
-            (f"· a leaky row split: {N.get('rowsplit_optimism_pct', '?')}% too optimistic", "warn", 22),
-            ("Paper, tutorial, code and every number: open.", "accent", 24)]),
+            ("Bugs caught by testing the system, not the model:", "fg", 22),
+            ("· an alert rule that fired on prediction jitter", "warn", 20),
+            ("· a score counted twice after a restart", "warn", 20),
+            ("· a window saved before its score (crash = lost score)", "warn", 20),
+            ("· tests leaking state into the dev Redis", "warn", 20),
+            (f"· a leaky row split: {N['rowsplit_optimism_pct']}% too optimistic", "warn", 20),
+            ("Paper, tutorial, code and every number: open.", "accent", 22)]),
     ]
     with PdfPages(OUT / "carousel.pdf") as pdf:
         for i, f in enumerate(figs, start=1):
@@ -113,11 +122,11 @@ def main() -> None:
     fig.patch.set_facecolor(BG)
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_axis_off()
-    ax.text(0.04, 0.70, "Real-time equipment health monitoring", color=FG, fontsize=34, fontweight="bold", va="center")
+    ax.text(0.04, 0.70, "Real-time equipment monitoring", color=FG, fontsize=30, fontweight="bold", va="center")
     ax.text(0.04, 0.44, "Java · Spring Boot · Kafka · ONNX · PostgreSQL · Redis", color=MUTED, fontsize=20, va="center")
     ax.text(0.04, 0.22, f"{N['main_gbr_full21_test_rmse']} cycles RMSE · pre-registered · crash-tested", color=ACCENT, fontsize=20, va="center")
     img = mpimg.imread(FIG / "which_eight.png")
-    iax = fig.add_axes([0.66, 0.08, 0.31, 0.84])
+    iax = fig.add_axes([0.70, 0.08, 0.27, 0.84])
     iax.imshow(img)
     iax.set_axis_off()
     fig.savefig(OUT / "banner.png", facecolor=BG)

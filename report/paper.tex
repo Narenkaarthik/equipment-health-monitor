@@ -116,7 +116,7 @@ before the first main result.
 \label{tab:main}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
-\input{tables/main.tex}
+\resizebox{\textwidth}{!}{\input{tables/main.tex}}
 \end{table*}
 
 \textbf{Result.} Table~\ref{tab:main}. All 21 sensors give \pmsd{\MainGbrFullTwoOneTestRmse}{\MainGbrFullTwoOneTestRmseStd}
@@ -196,7 +196,25 @@ exactly once. Every score equals an uninterrupted run (maximum difference \Resta
 alerts are identical to an uninterrupted run, and \RestartRedeliveredAndIgnoredAsLate{} redelivered messages are
 ignored as late.
 
-\textbf{Throughput.} \LoadTestParagraph
+\textbf{Throughput.} k6 posts one reading per request from \LtBeforeVus{} virtual users for \LtBeforeDurationS{}\,s, with every
+component on one laptop (Table~\ref{tab:load}). The baseline sustained \LtBeforeRps{} readings per second at
+p95 \LtBeforePNineFive{}\,ms. Sampled metrics located the first bottleneck: on average \LtBeforePoolPending{} requests waited
+for one of \LtBeforePool{} database connections while CPU stayed at \LtBeforeCpuPct{}\%. A pool of \LtAfterPool{}
+raised throughput by \LtGainPct{}\% to \LtAfterRps{} readings per second (p95 \LtAfterPNineFive{}\,ms, p99
+\LtAfterPNineNine{}\,ms). Contention then moved to the database writes: processing time per reading rose from
+\LtBeforeProcessingMs{} to \LtAfterProcessingMs{}\,ms. With the Kafka pipeline, ingest was not faster
+(\LtKafkaRps{} readings per second), because each request waits for the broker's acknowledgement. Six consumer
+threads processed \LtKafkaProcessedRps{} readings per second and drained the backlog \LtKafkaDrainS{}\,s after the load
+stopped. Kafka buys isolation and durability here, not speed.
+
+\begin{table}[t]
+\centering
+\caption{Load test of \texttt{POST /api/readings} (\LtBeforeDurationS{}\,s, one laptop).}
+\label{tab:load}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\resizebox{\columnwidth}{!}{\input{tables/loadtest.tex}}
+\end{table}
 
 \section{Error analysis}
 \begin{figure}[t]

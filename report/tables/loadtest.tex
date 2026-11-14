@@ -1,1 +1,9 @@
-% no load test yet
+\begin{tabular}{llrrrrrrr}
+\toprule
+Run & Pipeline & Users & Batch & Readings/s & p50 ms & p95 ms & p99 ms & Pool waits \\
+\midrule
+before & direct & 50 & 1 & 4235 & 9.51 & 21.80 & 36.11 & 32.85 \\
+after & direct & 50 & 1 & 4984 & 7.00 & 19.40 & 33.70 & 1.39 \\
+kafka & kafka & 50 & 1 & 4606 & 7.80 & 20.43 & 34.12 & 3.52 \\
+\bottomrule
+\end{tabular}

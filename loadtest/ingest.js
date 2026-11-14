@@ -14,6 +14,7 @@ const BASE = __ENV.BASE || "http://localhost:8080";
 const MACHINES = Number(__ENV.MACHINES || 100);
 
 export const options = {
+  summaryTrendStats: ["avg", "min", "med", "max", "p(50)", "p(95)", "p(99)"],
   scenarios: {
     ingest: { executor: "constant-vus", vus: VUS, duration: DURATION },
   },

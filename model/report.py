@@ -161,7 +161,7 @@ def figures(summary, runs, lt):
         r = row(summary, phase, arm, model)
         if r is None:
             continue
-        labels.append(f"{MODEL_LABEL[model]}\n{ARM_LABEL[arm]}")
+        labels.append(f"{MODEL_LABEL[model]}\n" + ARM_LABEL[arm].replace(" informative", "\ninformative").replace(" ranked", "\nranked"))
         means.append(r.test_rmse_mean)
         stds.append(r.test_rmse_std)
         colors.append(plotstyle.ARM_COLORS[arm] if model == "gbr" else plotstyle.GRID if False else plotstyle.SEQUENTIAL[0])
@@ -190,8 +190,8 @@ def figures(summary, runs, lt):
     fig, ax = plt.subplots(figsize=(5.4, 2.9))
     ax.axhspan(full.test_rmse_mean, full.test_rmse_mean + MARGIN, color=plotstyle.SEQUENTIAL[0], alpha=0.25, linewidth=0)
     ax.axhline(full.test_rmse_mean, color=plotstyle.SERIES[0], linewidth=1.2)
-    ax.text(len(groups) - 0.55, full.test_rmse_mean - 0.45, "all 21 sensors", color=plotstyle.SERIES[0], fontsize=7.5, ha="right")
-    ax.text(len(groups) - 0.55, full.test_rmse_mean + MARGIN + 0.1, "non-inferiority margin", color=plotstyle.INK_2, fontsize=7.5, ha="right")
+    ax.text(-0.55, full.test_rmse_mean + 0.05, "all 21 sensors", color=plotstyle.SERIES[0], fontsize=7.5, ha="left", va="bottom")
+    ax.text(-0.55, full.test_rmse_mean + MARGIN - 0.05, "non-inferiority margin", color=plotstyle.INK_2, fontsize=7.5, ha="left", va="top")
     for i, (name, g) in enumerate(groups):
         jitter = np.linspace(-0.12, 0.12, len(g)) if len(g) > 1 else [0]
         ax.scatter(i + np.asarray(jitter), g.test_rmse, s=22, color=plotstyle.SERIES[1] if i == 0 else plotstyle.SERIES[6], zorder=3)
@@ -219,7 +219,7 @@ def figures(summary, runs, lt):
         ax.plot(xs, a8, marker="o", color=plotstyle.ARM_COLORS["reduced8"], label="8 ranked sensors")
         ax.set_xticks(xs)
         ax.set_xlabel(title + (" (recipe 30)" if "window" in title else " (recipe 125)"))
-        ax.set_title(f"test RMSE vs {title}", fontsize=9)
+        ax.set_title(f"test RMSE vs {title}" + ("\n(each cap is its own target: compare the gap)" if "cap" in title else ""), fontsize=9)
     axes[0].set_ylabel("test RMSE (cycles)")
     axes[0].legend(fontsize=7)
     plotstyle.save(fig, FIG / "recipe_sensitivity")
@@ -266,7 +266,11 @@ def figures(summary, runs, lt):
     for al in eng["alerts"]:
         c = plotstyle.STATUS[al["severity"]]
         ax.axvline(al["opened_cycle"], color=c, linewidth=1.5)
-        ax.text(al["opened_cycle"] + 2, 112, f"{al['severity']} opens\n{al['true_rul_at_open']} cycles before failure", fontsize=7, color=plotstyle.INK)
+        warn = al["severity"] == "WARNING"
+        # WARNING label to the left of its line, CRITICAL to the right, so the two never overprint
+        ax.text(al["opened_cycle"] + (-2 if warn else 2), 112 if warn else 92,
+                f"{al['severity']} opens\n{al['true_rul_at_open']} cycles before failure", fontsize=7, color=plotstyle.INK,
+                ha="right" if warn else "left")
     ax.set_xlabel("cycle")
     ax.set_ylabel("remaining useful life (cycles)")
     ax.set_title(f"Test engine {eng['unit']} replayed to failure: one WARNING, then one CRITICAL", fontsize=9)
@@ -285,7 +289,8 @@ def figures(summary, runs, lt):
         for j, (col, lab) in enumerate([("p50_ms", "p50"), ("p95_ms", "p95"), ("p99_ms", "p99")]):
             axes[1].bar(xs + (j - 1) * w, lt[col], width=w, color=plotstyle.SEQUENTIAL[2 + 3 * j], label=lab)
         axes[1].set_title("request latency (ms)", fontsize=9)
-        axes[1].legend(fontsize=7)
+        axes[1].set_ylim(0, lt.p99_ms.max() * 1.3)
+        axes[1].legend(fontsize=7, ncol=3, loc="upper left")
         for ax in axes:
             ax.set_xticks(xs, lt.label, fontsize=7, rotation=15)
         plotstyle.save(fig, FIG / "loadtest")
@@ -458,6 +463,19 @@ def numbers(summary, runs, lt) -> dict:
             put(f"lt_{k}_vus", int(r.vus))
             put(f"lt_{k}_batch", int(r.batch))
             put(f"lt_{k}_pool_pending", r.pool_pending_mean, 1)
+            put(f"lt_{k}_duration_s", int(r.duration_s))
+            put(f"lt_{k}_pool_pending_max", int(r.pool_pending_max))
+            put(f"lt_{k}_cpu_pct", 100 * r.cpu_mean, 0)
+            put(f"lt_{k}_processing_ms", r.processing_ms_mean, 2)
+            put(f"lt_{k}_inference_ms", r.inference_ms_mean, 2)
+            put(f"lt_{k}_drain_s", r.drain_s, 1)
+            put(f"lt_{k}_scored", int(r.scored))
+            # sustained processing rate including the drain after k6 stops
+            put(f"lt_{k}_processed_rps", r.scored / (r.duration_s + r.drain_s), 0)
+            put(f"lt_{k}_pool", re.search(r"MONITOR_DB_POOL=(\d+)", str(r.settings)).group(1) if "MONITOR_DB_POOL" in str(r.settings) else 10)
+        if {"before", "after"} <= set(lt.label):
+            b, a = lt.set_index("label").loc["before"], lt.set_index("label").loc["after"]
+            put("lt_gain_pct", 100 * (a.readings_per_s / b.readings_per_s - 1), 0)
         best = lt.loc[lt.readings_per_s.idxmax()]
         put("lt_best_label", best.label)
         put("lt_best_rps", best.readings_per_s, 0)
@@ -516,7 +534,8 @@ def main() -> None:
     n = numbers(summary, runs, lt)
     write_macros(n)
     for tpl, out in [(REPORT / "README.template.md", ROOT / "README.md"), (REPORT / "RESULTS.template.md", ROOT / "showcase" / "RESULTS.md"),
-                     (REPORT / "posts.template.md", ROOT / "showcase" / "posts.md")]:
+                     (REPORT / "posts.template.md", ROOT / "showcase" / "posts.md"),
+                     (REPORT / "load-test-report.template.md", ROOT / "docs" / "load-test-report.md")]:
         if tpl.exists():
             out.parent.mkdir(exist_ok=True)
             render(tpl, out, n, t)

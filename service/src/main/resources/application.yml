@@ -6,7 +6,7 @@ spring:
     username: ${MONITOR_DB_USER:postgres}
     password: ${MONITOR_DB_PASSWORD:postgres}
     hikari:
-      maximum-pool-size: ${MONITOR_DB_POOL:10}
+      maximum-pool-size: ${MONITOR_DB_POOL:40}   # was 10: the first load-test bottleneck (docs/load-test-report.md)
   flyway:
     enabled: true
     locations: classpath:db/migration
