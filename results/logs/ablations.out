@@ -1,0 +1,9 @@
++ model/ablations.py
+greedy step 1: +s11 val RMSE 20.606
+greedy step 2: +s14 val RMSE 16.828
+greedy step 3: +s12 val RMSE 15.180
+greedy step 4: +s20 val RMSE 14.490
+greedy step 5: +s13 val RMSE 13.960
+greedy step 6: +s17 val RMSE 13.809
+greedy step 7: +s8 val RMSE 13.808
+greedy step 8: +s9 val RMSE 13.703

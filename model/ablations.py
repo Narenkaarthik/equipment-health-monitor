@@ -1,9 +1,14 @@
-"""Post hoc ablations (phase=posthoc in runs.csv). Designed after the main result, to separate the
-recipe from the idea:
-  * window size 10 and 60 (recipe: 30) for full21 and reduced8
+"""Post hoc ablations (phase=posthoc in runs.csv). Designed AFTER the main result showed reduced8
+2.6 cycles worse than full21 (H1 rejected), to separate the recipe from the idea:
+  * greedy8: 8 sensors chosen by greedy forward selection on the VALIDATION engines (a cheap
+    HistGradientBoosting proxy picks the sensors, the recipe model is then trained as usual):
+    does any 8-sensor set reach non-inferiority, or is 8 simply too few?
   * random 8-sensor subsets drawn from the informative sensors (is it "8 sensors" or "these 8"?)
-  * the 8 WORST-ranked informative sensors (the ranking's value)
-  * cap 100 and 150 (recipe: 125) for full21 and reduced8
+  * the 8 WORST-ranked informative sensors (what the ranking is worth)
+  * window size 10 and 60 (recipe: 30) for full21 and reduced8: does the gap depend on the window?
+  * cap 100 and 150 (recipe: 125) for full21 and reduced8: does the gap depend on the label cap?
+Window and cap rows are compared as a GAP within the same setting, never across settings,
+because a different cap is a different target.
 Same model, same budget (grid + selection rule), three seeds, same split; features rebuilt as needed.
 
 Run: python model/ablations.py        (resumable; skips run ids already in results/runs.csv)
@@ -77,9 +82,39 @@ def run_setting(name: str, sensors: list[str], window: int, cap: int, notes: str
         op = np.clip(mt.predict(d["official_last_X"]), 0, cap)
         d2 = dict(d)
         d2["official_last_y"] = np.minimum(d["official_last_y"], cap)
-        row = record(run_id, "posthoc", name, "gbr", s, n_best, vp, tp, op, d2, sec, 0.0, notes=notes)
-        # window and cap columns reflect the ablation, not the recipe
+        row = record(run_id, "posthoc", name, "gbr", s, n_best, vp, tp, op, d2, sec, 0.0, notes=notes, window=window, cap=cap)
         print(f"{run_id}: n={n_best} test_rmse={row['test_rmse']}")
+
+
+def greedy8() -> list[str]:
+    """Forward selection of 8 sensors by validation RMSE with a fast proxy model. Cached in results/greedy8.json."""
+    path = ROOT / "results" / "greedy8.json"
+    if path.exists():
+        return json.loads(path.read_text())["selected"]
+    from sklearn.ensemble import HistGradientBoostingRegressor
+
+    d = dataset(ARMS["informative15"], CONFIG["window"]["size"], CAP)
+    names = feature_names(ARMS["informative15"])
+    selected: list[str] = []
+    trace = []
+    while len(selected) < 8:
+        best = None
+        for s in ARMS["informative15"]:
+            if s in selected:
+                continue
+            cand = selected + [s]
+            idx = [names.index(f) for f in feature_names(cand)]
+            m = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, random_state=0)
+            m.fit(d["train_X"][:, idx], d["train_y"])
+            r = rmse(d["val_y"], np.clip(m.predict(d["val_X"][:, idx]), 0, CAP))
+            if best is None or r < best[1]:
+                best = (s, r)
+        selected.append(best[0])
+        trace.append({"added": best[0], "val_rmse": round(best[1], 4)})
+        print(f"greedy step {len(selected)}: +{best[0]} val RMSE {best[1]:.3f}", flush=True)
+    path.write_text(json.dumps({"selected": selected, "trace": trace, "proxy": "HistGradientBoostingRegressor(max_iter=300, lr=0.05, depth=4)",
+                                "selected_on": "validation engines only"}, indent=2))
+    return selected
 
 
 def main() -> None:
@@ -87,6 +122,8 @@ def main() -> None:
     reduced8 = ARMS["reduced8"]
     full = ARMS["full21"]
     settings = []
+    g8 = sorted(greedy8(), key=lambda s: int(s[1:]))
+    settings.append(("greedy8", g8, 30, CAP, f"ablation: 8 sensors by greedy forward selection on validation {g8}"))
     for w in (10, 60):
         settings.append((f"full21-w{w}", full, w, CAP, f"ablation: window {w} instead of 30"))
         settings.append((f"reduced8-w{w}", reduced8, w, CAP, f"ablation: window {w} instead of 30"))

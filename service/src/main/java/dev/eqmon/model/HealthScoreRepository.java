@@ -44,6 +44,15 @@ public class HealthScoreRepository {
                 .query(HealthScoreRepository::map).list();
     }
 
+    /** The last n predicted RULs of a machine, oldest first (rebuilds the alert engine's trend window). */
+    public List<Double> lastRuls(int machineId, int n) {
+        List<Double> newestFirst = jdbc.sql("select predicted_rul from health_scores where machine_id = :m order by cycle desc limit :n")
+                .param("m", machineId).param("n", n).query(Double.class).list();
+        List<Double> out = new java.util.ArrayList<>(newestFirst);
+        java.util.Collections.reverse(out);
+        return out;
+    }
+
     public long count() {
         Long n = jdbc.sql("select count(*) from health_scores").query(Long.class).single();
         return n == null ? 0 : n;

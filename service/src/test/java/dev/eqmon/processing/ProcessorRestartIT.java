@@ -14,9 +14,15 @@ class ProcessorRestartIT extends IntegrationTestBase {
 
     @Autowired Processor processor;
     @Autowired WindowStateStore store;
+    @Autowired dev.eqmon.machines.MachineRepository machines;
+    @Autowired org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
     @BeforeEach
     void clean() {
+        jdbc.sql("delete from alerts").update();
+        jdbc.sql("delete from health_scores").update();
+        machines.upsert(42, "engine-042");
+        machines.upsert(43, "engine-043");
         store.clear();
         processor.forgetInMemoryState();
     }

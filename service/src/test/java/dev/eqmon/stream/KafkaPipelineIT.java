@@ -36,6 +36,7 @@ class KafkaPipelineIT extends IntegrationTestBase {
     @Autowired Processor processor;
     @Autowired JdbcClient jdbc;
     @Autowired KafkaTemplate<String, String> kafka;
+    @Autowired ReadingJson readingJson;
     @Value("${spring.kafka.bootstrap-servers}") String bootstrap;
 
     @BeforeEach
@@ -71,7 +72,7 @@ class KafkaPipelineIT extends IntegrationTestBase {
             http.postForEntity("/api/readings", reading(9, c), Map.class);
         }
         // and a raw redelivery straight onto the topic
-        kafka.send("readings", "9", new ReadingJson(new com.fasterxml.jackson.databind.ObjectMapper())
+        kafka.send("readings", "9", readingJson
                 .write(dev.eqmon.ingest.Reading.from(new dev.eqmon.ingest.ReadingRequest(9, 40, null, List.of(0.0, 0.0, 100.0),
                         (Map<String, Double>) reading(9, 40).get("sensors")), java.time.Instant.EPOCH)));
         await().pollDelay(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(30)).untilAsserted(() -> {

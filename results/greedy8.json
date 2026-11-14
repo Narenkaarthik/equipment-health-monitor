@@ -1,0 +1,48 @@
+{
+  "selected": [
+    "s11",
+    "s14",
+    "s12",
+    "s20",
+    "s13",
+    "s17",
+    "s8",
+    "s9"
+  ],
+  "trace": [
+    {
+      "added": "s11",
+      "val_rmse": 20.6057
+    },
+    {
+      "added": "s14",
+      "val_rmse": 16.8275
+    },
+    {
+      "added": "s12",
+      "val_rmse": 15.1797
+    },
+    {
+      "added": "s20",
+      "val_rmse": 14.4898
+    },
+    {
+      "added": "s13",
+      "val_rmse": 13.9599
+    },
+    {
+      "added": "s17",
+      "val_rmse": 13.8093
+    },
+    {
+      "added": "s8",
+      "val_rmse": 13.8085
+    },
+    {
+      "added": "s9",
+      "val_rmse": 13.703
+    }
+  ],
+  "proxy": "HistGradientBoostingRegressor(max_iter=300, lr=0.05, depth=4)",
+  "selected_on": "validation engines only"
+}

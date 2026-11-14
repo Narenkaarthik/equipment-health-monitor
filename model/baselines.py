@@ -38,11 +38,13 @@ def load_arm(arm: str):
 
 
 def record(run_id: str, phase: str, arm: str, model: str, seed, n_est, val_pred, test_pred, off_pred, d,
-           train_seconds: float, infer_us: float, notes: str = "") -> dict:
+           train_seconds: float, infer_us: float, notes: str = "", window: int | None = None, cap: int | None = None) -> dict:
+    cap = CAP if cap is None else cap
+    window = WINDOW if window is None else window
     tm = all_metrics(d["test_y"], test_pred)
-    off = all_metrics(np.minimum(d["official_last_y"], CAP), off_pred)
+    off = all_metrics(np.minimum(d["official_last_y"], cap), off_pred)
     row = {
-        "run_id": run_id, "phase": phase, "arm": arm, "model": model, "seed": seed, "window": WINDOW, "cap": CAP,
+        "run_id": run_id, "phase": phase, "arm": arm, "model": model, "seed": seed, "window": window, "cap": cap,
         "n_sensors": d["train_X"].shape[1] // 3, "n_features": d["train_X"].shape[1], "n_estimators": n_est,
         "val_rmse": round(all_metrics(d["val_y"], val_pred)["rmse"], 4),
         "test_rmse": round(tm["rmse"], 4), "test_mae": round(tm["mae"], 4), "test_nasa": round(tm["nasa"], 4),
