@@ -28,6 +28,7 @@ public class Processor implements ReadingSink {
     private final Counter gaps;
     private final Counter late;
     private final Timer timer;
+    private final Timer lag;
 
     public Processor(int windowSize, WindowStateStore store, List<FeatureConsumer> consumers, MeterRegistry metrics) {
         this.windowSize = windowSize;
@@ -37,6 +38,10 @@ public class Processor implements ReadingSink {
         this.gaps = metrics.counter("monitor.readings.processed", "outcome", "gap");
         this.late = metrics.counter("monitor.readings.processed", "outcome", "late");
         this.timer = metrics.timer("monitor.processing.time");
+        this.lag = Timer.builder("monitor.processing.lag")
+                .description("time from ingest (recordedAt) to the end of processing")
+                .publishPercentiles(0.5, 0.95, 0.99)
+                .register(metrics);
     }
 
     @Override
@@ -47,6 +52,13 @@ public class Processor implements ReadingSink {
     }
 
     /** @return the outcome for this reading (features are delivered to the consumers as a side effect) */
+    /**
+     * Order matters for crash safety: the window is saved to the store only AFTER the consumers (score
+     * insert, alerts) succeeded. A crash before the save means the reading is redelivered against the
+     * old window, scored again, and the score insert is a no-op (primary key). Saving first would make the
+     * redelivered reading look LATE and its score would be lost. If a consumer throws, the in-memory window
+     * is dropped so the retry reloads the last saved state instead of seeing its own half-applied reading.
+     */
     public MachineWindow.Result process(Reading r) {
         long start = System.nanoTime();
         MachineWindow window = windows.computeIfAbsent(r.machineId(), this::loadOrCreate);
@@ -54,7 +66,16 @@ public class Processor implements ReadingSink {
         synchronized (window) {
             result = window.apply(r);
             if (result.outcome() != MachineWindow.Outcome.LATE) {
-                store.save(window.snapshot());
+                try {
+                    FeatureVector f = result.features().orElseThrow();
+                    for (FeatureConsumer c : consumers) {
+                        c.accept(r, f);
+                    }
+                    store.save(window.snapshot());
+                } catch (RuntimeException e) {
+                    windows.remove(r.machineId(), window);
+                    throw e;
+                }
             }
         }
         switch (result.outcome()) {
@@ -65,11 +86,9 @@ public class Processor implements ReadingSink {
             }
             case LATE -> late.increment();
         }
-        result.features().ifPresent(f -> {
-            for (FeatureConsumer c : consumers) {
-                c.accept(r, f);
-            }
-        });
+        if (r.recordedAt() != null) {
+            lag.record(java.time.Duration.between(r.recordedAt(), java.time.Instant.now()));
+        }
         timer.record(System.nanoTime() - start, java.util.concurrent.TimeUnit.NANOSECONDS);
         return result;
     }

@@ -1,0 +1,36 @@
+{
+  "file_rows": 20631,
+  "readings_rows": 20631,
+  "health_scores_rows": 20631,
+  "machines_scored_exactly_1_to_life": 100,
+  "machines": 100,
+  "scores_compared_with_reference": 20631,
+  "max_abs_diff_vs_reference": 9e-05,
+  "machines_with_two_open_alerts_of_one_severity": 0,
+  "machines_with_alerts_different_from_uninterrupted_run": 0,
+  "machines_with_repeated_alert_of_one_severity": 4,
+  "note_repeated": "repeats also occur in the uninterrupted run: a property of the alert rule on those engines, not of the restart",
+  "redelivered_and_ignored_as_late": 2,
+  "topic": "readings-restart-1794642604",
+  "final_consumer_lag": 0,
+  "dead_letter_offsets": "readings-restart-1794642604.DLT:0:0",
+  "timeline": [
+    {
+      "event": "processor killed (taskkill /F)",
+      "scored_so_far": 3805,
+      "readings_so_far": 6179
+    },
+    {
+      "event": "after 8 s down",
+      "scored": 3805,
+      "readings": 12764,
+      "lag": 11175
+    },
+    {
+      "event": "processor restarted",
+      "seconds_down": 24.5
+    }
+  ],
+  "processing_lag_max_ms": 50137.9,
+  "passed": true
+}

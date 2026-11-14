@@ -27,7 +27,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.TestPropertySource;
 
 /** Stage 5: ingest publishes, the consumer processes, duplicates change nothing, poison goes to the DLT. */
-@TestPropertySource(properties = {"monitor.pipeline=kafka", "monitor.kafka.partitions=3", "monitor.kafka.group=it-processor"})
+@TestPropertySource(properties = {"monitor.pipeline=kafka", "monitor.kafka.partitions=3", "monitor.kafka.group=it-processor", "monitor.kafka.topic=readings-it"})
 class KafkaPipelineIT extends IntegrationTestBase {
 
     @Autowired TestRestTemplate http;
@@ -72,7 +72,7 @@ class KafkaPipelineIT extends IntegrationTestBase {
             http.postForEntity("/api/readings", reading(9, c), Map.class);
         }
         // and a raw redelivery straight onto the topic
-        kafka.send("readings", "9", readingJson
+        kafka.send("readings-it", "9", readingJson
                 .write(dev.eqmon.ingest.Reading.from(new dev.eqmon.ingest.ReadingRequest(9, 40, null, List.of(0.0, 0.0, 100.0),
                         (Map<String, Double>) reading(9, 40).get("sensors")), java.time.Instant.EPOCH)));
         await().pollDelay(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
@@ -83,7 +83,7 @@ class KafkaPipelineIT extends IntegrationTestBase {
 
     @Test
     void malformedMessageLandsOnTheDeadLetterTopic() {
-        kafka.send("readings", "9", "{not json");
+        kafka.send("readings-it", "9", "{not json");
         Properties p = new Properties();
         p.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
         p.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-check-" + System.nanoTime());
@@ -91,7 +91,7 @@ class KafkaPipelineIT extends IntegrationTestBase {
         p.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         p.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(p)) {
-            consumer.subscribe(List.of("readings.DLT"));
+            consumer.subscribe(List.of("readings-it.DLT"));
             await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
                 assertThat(records.count()).isGreaterThan(0);

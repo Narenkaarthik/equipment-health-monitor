@@ -139,6 +139,42 @@ def main() -> None:
         settings.append((f"reduced8-cap{cap}", reduced8, 30, cap, f"ablation: cap {cap} instead of 125"))
     for name, sensors, w, cap, notes in settings:
         run_setting(name, sensors, w, cap, notes)
+    run_rowsplit()
+
+
+def run_rowsplit() -> None:
+    """Methodological gap: the same model and budget, evaluated on a ROW-level random split of the train and
+    validation engines (rows of one engine land on both sides), against the engine-level split the recipe uses.
+    The test engines are not touched. The difference is the optimism a leaky split would have reported."""
+    done = existing_run_ids()
+    ids = [f"posthoc-gbr-full21-rowsplit-s{s}" for s in SEEDS]
+    if all(i in done for i in ids):
+        print("rowsplit: all seeds present; skipping")
+        return
+    sel = json.loads((ROOT / "results" / "selections.json").read_text())
+    n = sel["full21"]["n_estimators"]  # same trees as the recipe model, no new selection
+    raw = add_rul(load_train(), cap=CAP)
+    split = load_split()
+    pool = raw[raw.unit.isin(split["train"] + split["val"])]
+    cols = feature_names(ARMS["full21"])
+    ff = build_feature_frame(pool, ARMS["full21"], CONFIG["window"]["size"])
+    X, y = ff[cols].to_numpy(dtype=np.float64), ff["rul"].to_numpy(dtype=np.float64)
+    off = dataset(ARMS["full21"], CONFIG["window"]["size"], CAP)
+    for s in SEEDS:
+        run_id = f"posthoc-gbr-full21-rowsplit-s{s}"
+        if run_id in done:
+            continue
+        rng = np.random.default_rng(s)
+        mask = rng.random(len(y)) < 0.8
+        t0 = time.perf_counter()
+        m = make_model(s, n_estimators=n).fit(X[mask], y[mask])
+        sec = time.perf_counter() - t0
+        hp = np.clip(m.predict(X[~mask]), 0, CAP)
+        d = {"train_X": X[mask], "val_y": y[~mask], "test_y": y[~mask], "official_last_y": np.minimum(off["official_last_y"], CAP)}
+        op = np.clip(m.predict(off["official_last_X"]), 0, CAP)
+        row = record(run_id, "posthoc", "full21-rowsplit", "gbr", s, n, hp, hp, op, d, sec, 0.0,
+                     notes="methodology: row-level random 80/20 split of train+val engines (leaky); test_rmse is on held-out ROWS")
+        print(f"{run_id}: leaky row-split RMSE {row['test_rmse']}")
 
 
 if __name__ == "__main__":

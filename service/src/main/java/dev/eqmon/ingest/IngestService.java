@@ -23,14 +23,16 @@ public class IngestService {
     private final ReadingRepository readings;
     private final ReadingSink sink;
     private final Clock clock;
+    private final io.micrometer.core.instrument.Counter ingested;
 
     public IngestService(ReadingValidator validator, MachineRepository machines, ReadingRepository readings,
-            ReadingSink sink, Clock clock) {
+            ReadingSink sink, Clock clock, io.micrometer.core.instrument.MeterRegistry metrics) {
         this.validator = validator;
         this.machines = machines;
         this.readings = readings;
         this.sink = sink;
         this.clock = clock;
+        this.ingested = metrics.counter("monitor.readings.ingested");
     }
 
     @Transactional
@@ -44,6 +46,7 @@ public class IngestService {
         List<Reading> valid = batch.stream().map(r -> Reading.from(r, now)).toList();
         int inserted = readings.insertAll(valid);
         sink.accept(valid);
+        ingested.increment(inserted);
         return new Result(batch.size(), inserted, batch.size() - inserted);
     }
 }

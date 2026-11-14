@@ -23,7 +23,7 @@ public class ReadingConsumer {
         this.consumed = metrics.counter("monitor.kafka.consumed");
     }
 
-    @KafkaListener(topics = "readings", groupId = "${monitor.kafka.group:processor}")
+    @KafkaListener(topics = "${monitor.kafka.topic:readings}", groupId = "${monitor.kafka.group:processor}")
     public void onRecord(ConsumerRecord<String, String> record) {
         consumed.increment();
         processor.process(json.read(record.value()));

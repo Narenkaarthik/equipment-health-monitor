@@ -1,0 +1,39 @@
+{
+  "population_small_error_share": 0.2661,
+  "population_misclassified_true_above_cap": 0,
+  "patterns": {
+    "lagging": 16,
+    "jitter": 8,
+    "early": 8,
+    "plateau": 2,
+    "boundary": 1
+  },
+  "test_rows": 3183,
+  "misclassified_rows": 248,
+  "misclassified_share": 0.0779,
+  "inspected": 35,
+  "ambiguous": 3,
+  "mislabeled": 0,
+  "model": 32,
+  "top_confusion": "WARNING predicted as HEALTHY",
+  "top_confusion_rows": 135,
+  "second_confusion": "WARNING predicted as CRITICAL",
+  "second_confusion_rows": 58,
+  "healthy_as_critical_rows": 0,
+  "critical_as_healthy_rows": 0,
+  "confusions": {
+    "WARNING->HEALTHY": 135,
+    "WARNING->CRITICAL": 58,
+    "CRITICAL->WARNING": 31,
+    "HEALTHY->WARNING": 24
+  },
+  "by_category_and_confusion": {
+    "ambiguous|CRITICAL->WARNING": 1,
+    "ambiguous|HEALTHY->WARNING": 1,
+    "ambiguous|WARNING->CRITICAL": 1,
+    "model|CRITICAL->WARNING": 3,
+    "model|HEALTHY->WARNING": 2,
+    "model|WARNING->CRITICAL": 7,
+    "model|WARNING->HEALTHY": 20
+  }
+}

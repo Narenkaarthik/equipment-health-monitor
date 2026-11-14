@@ -72,6 +72,10 @@ public class AlertEngine implements HealthScoreListener {
     }
 
     private void evaluate(MachineAlertState st, HealthScore score) {
+        if (score.cycle() <= st.lastCycle) {
+            return; // a redelivered score: already evaluated, evaluating it again would distort the trend window
+        }
+        st.lastCycle = score.cycle();
         double rul = score.predictedRul();
         st.recent.addLast(rul);
         while (st.recent.size() > rules.trendWindow()) {
@@ -200,6 +204,7 @@ public class AlertEngine implements HealthScoreListener {
             st.open.put(a.severity(), a);
         }
         st.recent.addAll(recentScores.lastRuls(machineId, currentCycle, rules.trendWindow() - 1));
+        st.lastCycle = currentCycle - 1;
         st.status = st.open.containsKey(Severity.CRITICAL) ? Severity.CRITICAL.name()
                 : st.open.containsKey(Severity.WARNING) ? Severity.WARNING.name() : Severity.HEALTHY;
         return st;
@@ -210,5 +215,6 @@ public class AlertEngine implements HealthScoreListener {
         final Map<Severity, Alert> open = new EnumMap<>(Severity.class);
         final Map<Severity, Integer> clearStreak = new EnumMap<>(Severity.class);
         String status = Severity.HEALTHY;
+        int lastCycle = Integer.MIN_VALUE;
     }
 }

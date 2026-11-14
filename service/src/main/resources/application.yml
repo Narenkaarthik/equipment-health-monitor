@@ -14,6 +14,7 @@ spring:
     redis:
       host: ${MONITOR_REDIS_HOST:localhost}
       port: ${MONITOR_REDIS_PORT:6379}
+      database: ${MONITOR_REDIS_DB:0}
 
   kafka:
     bootstrap-servers: ${MONITOR_KAFKA_BOOTSTRAP:localhost:9092}

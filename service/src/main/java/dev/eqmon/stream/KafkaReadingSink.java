@@ -4,15 +4,21 @@ import dev.eqmon.ingest.Reading;
 import dev.eqmon.ingest.ReadingSink;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.ArrayList;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 
-/** Publishes each stored reading with the machine id as key; the HTTP request returns without waiting for the processor. */
+/**
+ * Publishes each stored reading with the machine id as key. The batch is sent in one go and the call
+ * returns once the broker has acknowledged every message ({@code acks=all}), so a 202 means "durably
+ * queued". If the broker does not acknowledge, the exception rolls back the ingest transaction and the
+ * client sees an error and can retry; the readings table never holds a row that was not queued.
+ * The request does not wait for the processor.
+ */
 public class KafkaReadingSink implements ReadingSink {
-
-    private static final Logger log = LoggerFactory.getLogger(KafkaReadingSink.class);
 
     private final KafkaTemplate<String, String> template;
     private final ReadingJson json;
@@ -30,15 +36,19 @@ public class KafkaReadingSink implements ReadingSink {
 
     @Override
     public void accept(List<Reading> readings) {
+        List<CompletableFuture<SendResult<String, String>>> sends = new ArrayList<>(readings.size());
         for (Reading r : readings) {
-            template.send(topic, Integer.toString(r.machineId()), json.write(r)).whenComplete((result, ex) -> {
-                if (ex == null) {
-                    published.increment();
-                } else {
-                    failed.increment();
-                    log.error("publish failed for machine {} cycle {}: {}", r.machineId(), r.cycle(), ex.toString());
-                }
-            });
+            sends.add(template.send(topic, Integer.toString(r.machineId()), json.write(r)));
+        }
+        try {
+            CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).get(10, TimeUnit.SECONDS);
+            published.increment(readings.size());
+        } catch (Exception e) {
+            failed.increment(readings.size());
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new IllegalStateException("Kafka did not acknowledge the batch", e);
         }
     }
 }

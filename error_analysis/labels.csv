@@ -1,0 +1,36 @@
+sample,category,pattern,note
+1,model,jitter,fast engine (life 137); single upward spike from about 75 to 100 at cycles 85-90
+2,model,lagging,fast engine (life 171); prediction rebounds to about 120 at cycle 80 and stays above the label
+3,model,jitter,upward spike from about 55 to 69 at cycle 139; neighbours are in WARNING
+4,model,jitter,spike to 73 out of a flat run near 60 (cycles 150-165)
+5,model,lagging,fast engine (life 147); prediction stays near 110 until cycle 70 while the label falls from cycle 22
+6,model,lagging,fast engine (life 166); prediction flat near 120 until cycle 90 while the label falls from cycle 41
+7,model,lagging,fast engine (life 171); same lag as sample 2
+8,model,lagging,fast engine (life 166); same lag as sample 6
+9,model,lagging,engine life 150; prediction above the label from cycle 70 with a bump at 107
+10,model,lagging,fast engine (life 137); bump to 100 at cycles 85-90 inside a lagging stretch
+11,model,lagging,fast engine (life 147); prediction about 20 cycles above the label for 60 cycles
+12,model,lagging,fast engine (life 137); prediction 61.7 just above the WARNING line but 24 cycles above the truth
+13,model,lagging,engine life 196; prediction above the label from cycle 120
+14,model,jitter,single spike from about 45 to 60 at cycle 193; neighbours are WARNING
+15,model,lagging,flat run of predictions near 60 then a spike to 69
+16,model,lagging,bump of about 20 cycles above the label around cycle 150
+17,model,jitter,spike to 76 among predictions near 65
+18,model,lagging,prediction 15 cycles above the label at the WARNING boundary
+19,model,jitter,noisy long engine (life 335); upward excursion at cycle 282
+20,model,lagging,bump of 20 to 30 cycles above the label between cycles 100 and 160
+21,model,early,long engine (life 335); prediction drops below the label in the last 50 cycles
+22,model,early,prediction falls below the label after cycle 160
+23,model,early,long engine (life 313); prediction 19 cycles below the label near the end
+24,model,early,long engine (life 269); prediction runs about 15 cycles below the label from cycle 200
+25,model,jitter,abrupt step from about 40 to 18 at cycle 200 (after a spike to 60)
+26,model,early,long engine (life 335); prediction below the label in the last 40 cycles
+27,model,early,error 10.5 cycles across the CRITICAL line; just outside the ambiguous band
+28,ambiguous,early,error 8.5 cycles across the CRITICAL line on a long engine
+29,model,plateau,predictions stuck at 59-60 for cycles 115-130 then 42 while the truth is 23
+30,model,plateau,predictions stuck at 59-60 for cycles 150-165 then 46 while the truth is 29
+31,model,lagging,fast engine (life 147); prediction 12 cycles above the label at the CRITICAL line
+32,ambiguous,lagging,error 9.8 cycles across the CRITICAL line; truth is 29 (one cycle from the boundary)
+33,model,jitter,downward dip to 38 at cycle 245 while neighbours sit near 60
+34,model,early,long engine (life 269); prediction about 19 cycles below the label
+35,ambiguous,boundary,truth 60 and prediction 58.1: both on the WARNING line
