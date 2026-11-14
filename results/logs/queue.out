@@ -9,3 +9,23 @@ main-gbr-full21-s0: n=200 val 13.0789 test 12.9335 official 13.1249
 main-gbr-full21-s1: n=200 val 12.8886 test 12.9669 official 13.3571
 main-gbr-full21-s2: n=200 val 13.139 test 13.0606 official 13.1805
 + model/train.py fit --arm informative15 --seed 0
+fit informative15 seed 0: 257.3s; val RMSE by n: 100:13.322, 200:13.079, 300:13.157, 400:13.181, 500:13.204, 600:13.246, 700:13.282, 800:13.323
++ model/train.py fit --arm informative15 --seed 1
+fit informative15 seed 1: 245.9s; val RMSE by n: 100:13.146, 200:12.888, 300:12.953, 400:13.016, 500:13.083, 600:13.119, 700:13.161, 800:13.222
++ model/train.py fit --arm informative15 --seed 2
+fit informative15 seed 2: 260.5s; val RMSE by n: 100:13.293, 200:13.139, 300:13.222, 400:13.242, 500:13.322, 600:13.354, 700:13.421, 800:13.465
++ model/train.py evaluate --arm informative15
+main-gbr-informative15-s0: n=200 val 13.0789 test 12.9335 official 13.1249
+main-gbr-informative15-s1: n=200 val 12.888 test 12.9669 official 13.3571
+main-gbr-informative15-s2: n=200 val 13.139 test 13.0606 official 13.1805
++ model/train.py fit --arm reduced8 --seed 0
+fit reduced8 seed 0: 140.5s; val RMSE by n: 100:15.813, 200:15.474, 300:15.418, 400:15.482, 500:15.533, 600:15.592, 700:15.622, 800:15.697
++ model/train.py fit --arm reduced8 --seed 1
+fit reduced8 seed 1: 134.5s; val RMSE by n: 100:15.904, 200:15.499, 300:15.492, 400:15.500, 500:15.588, 600:15.644, 700:15.660, 800:15.688
++ model/train.py fit --arm reduced8 --seed 2
+fit reduced8 seed 2: 134.4s; val RMSE by n: 100:15.888, 200:15.511, 300:15.485, 400:15.550, 500:15.612, 600:15.609, 700:15.681, 800:15.686
++ model/train.py evaluate --arm reduced8
+main-gbr-reduced8-s0: n=300 val 15.4178 test 15.6167 official 15.3321
+main-gbr-reduced8-s1: n=300 val 15.4919 test 15.5027 official 15.0921
+main-gbr-reduced8-s2: n=300 val 15.4853 test 15.5521 official 15.633
+queue done

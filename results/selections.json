@@ -12,5 +12,33 @@
       "800": 13.344530667696574
     },
     "rule": "n_estimators is chosen per arm from the grid [100, 200, 300, 400, 500, 600, 700, 800] by the lowest MEAN validation RMSE across the three seeds (staged predictions of the same fitted model). The test split is scored once per run at the selected stage only. The same grid and budget apply to every arm."
+  },
+  "informative15": {
+    "n_estimators": 200,
+    "mean_val_rmse_by_n": {
+      "100": 13.253840110023807,
+      "200": 13.035299996007344,
+      "300": 13.110510167463076,
+      "400": 13.146388104525935,
+      "500": 13.202999698367696,
+      "600": 13.239830778162984,
+      "700": 13.28806490730625,
+      "800": 13.336862829436342
+    },
+    "rule": "n_estimators is chosen per arm from the grid [100, 200, 300, 400, 500, 600, 700, 800] by the lowest MEAN validation RMSE across the three seeds (staged predictions of the same fitted model). The test split is scored once per run at the selected stage only. The same grid and budget apply to every arm."
+  },
+  "reduced8": {
+    "n_estimators": 300,
+    "mean_val_rmse_by_n": {
+      "100": 15.868146189027504,
+      "200": 15.494736116687378,
+      "300": 15.465013160633603,
+      "400": 15.510562273184798,
+      "500": 15.577406952573964,
+      "600": 15.615095254392749,
+      "700": 15.654103537425689,
+      "800": 15.690284727764118
+    },
+    "rule": "n_estimators is chosen per arm from the grid [100, 200, 300, 400, 500, 600, 700, 800] by the lowest MEAN validation RMSE across the three seeds (staged predictions of the same fitted model). The test split is scored once per run at the selected stage only. The same grid and budget apply to every arm."
   }
 }
