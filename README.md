@@ -260,13 +260,26 @@ figure and number from `results/`, and runs the Java build and tests. Without `-
 any missing experiment through the resumable queue. That takes hours on a laptop; runs already in
 `results/runs.csv` are skipped. The raw data is downloaded from NASA's data portal on first use.
 
-Run the system:
+Run the system. The first command starts PostgreSQL, Redis and the service; the next two build the replayer and
+fetch the data (the reproduction script downloads FD001 and checks it); the last streams all 100 engines.
 
 ```bash
 docker compose up
 ```
 
-Then open http://localhost:8080 and run `java -jar replayer/target/replayer.jar --file data/raw/train_FD001.txt`.
+```bash
+./mvnw -pl replayer -am package -DskipTests
+```
+
+```bash
+python scripts/reproduce.py --quick
+```
+
+```bash
+java -jar replayer/target/replayer.jar --file data/raw/train_FD001.txt
+```
+
+Open http://localhost:8080 to watch the fleet.
 
 ## Demo
 

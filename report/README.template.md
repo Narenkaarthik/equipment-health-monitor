@@ -114,8 +114,8 @@ Splitting rows at random, so that cycles of one engine land in both training and
 
 | Check | Result |
 | --- | --- |
-| Stage 1: all 100 engines replayed, rows in PostgreSQL = rows in the file | {{ n.restart_readings_rows }} = {{ n.restart_file_rows }} |
-| Stage 3: Java ONNX prediction vs Python, 300 real test rows | within the 1e-3 tolerance; {{ n.java_us_per_prediction }} µs per prediction |
+| Stage 1: all {{ n.eda_engines }} engines replayed, rows in PostgreSQL = rows in the file | {{ n.restart_readings_rows }} = {{ n.restart_file_rows }} |
+| Stage 3: Java ONNX prediction vs Python, {{ n.parity_rows }} real test rows | within the 1e{{ n.cfg_parity_tol_exp }} tolerance; {{ n.java_us_per_prediction }} µs per prediction |
 | Stage 4: held-out engines with exactly one WARNING then one CRITICAL | {{ n.alert_replay_test_engines_passing }} of {{ n.alert_replay_test_engines }} |
 | Stage 4: true cycles left when CRITICAL opens (mean, minimum) | {{ n.alert_replay_test_mean_true_rul_at_critical }}, {{ n.alert_replay_test_min_true_rul_at_critical }} |
 | Stage 5: processor killed mid-stream, readings stored / scored | {{ n.restart_readings_rows }} / {{ n.restart_health_scores_rows }} of {{ n.restart_file_rows }} |
@@ -236,13 +236,26 @@ figure and number from `results/`, and runs the Java build and tests. Without `-
 any missing experiment through the resumable queue. That takes hours on a laptop; runs already in
 `results/runs.csv` are skipped. The raw data is downloaded from NASA's data portal on first use.
 
-Run the system:
+Run the system. The first command starts PostgreSQL, Redis and the service; the next two build the replayer and
+fetch the data (the reproduction script downloads FD001 and checks it); the last streams all 100 engines.
 
 ```bash
 docker compose up
 ```
 
-Then open http://localhost:8080 and run `java -jar replayer/target/replayer.jar --file data/raw/train_FD001.txt`.
+```bash
+./mvnw -pl replayer -am package -DskipTests
+```
+
+```bash
+python scripts/reproduce.py --quick
+```
+
+```bash
+java -jar replayer/target/replayer.jar --file data/raw/train_FD001.txt
+```
+
+Open http://localhost:8080 to watch the fleet.
 
 ## Demo
 
