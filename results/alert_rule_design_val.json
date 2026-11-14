@@ -1,0 +1,98 @@
+{
+  "designed_on": "validation engines only",
+  "chosen": "slope<-2 over 30 + 30-row warm-up",
+  "candidates": {
+    "original: drop>20 over 10": {
+      "engines": 15,
+      "passing": 2,
+      "alerts": 59,
+      "first_warning_true_rul_mean": 127.5,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 41
+    },
+    "threshold only (no trend)": {
+      "engines": 15,
+      "passing": 14,
+      "alerts": 31,
+      "first_warning_true_rul_mean": 63.3,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 0
+    },
+    "drop>20 over 10, full window": {
+      "engines": 15,
+      "passing": 3,
+      "alerts": 56,
+      "first_warning_true_rul_mean": 113.8,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 37
+    },
+    "drop>30 over 20, full window": {
+      "engines": 15,
+      "passing": 6,
+      "alerts": 40,
+      "first_warning_true_rul_mean": 85.4,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 19
+    },
+    "slope<-2 over 20, full window": {
+      "engines": 15,
+      "passing": 12,
+      "alerts": 34,
+      "first_warning_true_rul_mean": 70.7,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 6
+    },
+    "slope<-2.5 over 20, full window": {
+      "engines": 15,
+      "passing": 14,
+      "alerts": 31,
+      "first_warning_true_rul_mean": 64.5,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 2
+    },
+    "slope<-3 over 20, full window": {
+      "engines": 15,
+      "passing": 14,
+      "alerts": 31,
+      "first_warning_true_rul_mean": 64.1,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 1
+    },
+    "slope<-2 over 30, full window": {
+      "engines": 15,
+      "passing": 14,
+      "alerts": 31,
+      "first_warning_true_rul_mean": 63.9,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 1
+    },
+    "slope<-2 over 30 + 30-row warm-up": {
+      "engines": 15,
+      "passing": 15,
+      "alerts": 30,
+      "first_warning_true_rul_mean": 56.7,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 1
+    },
+    "threshold only + 30-row warm-up": {
+      "engines": 15,
+      "passing": 15,
+      "alerts": 30,
+      "first_warning_true_rul_mean": 56.1,
+      "critical_true_rul_mean": 29.0,
+      "critical_true_rul_min": 19,
+      "trend_opened": 0
+    }
+  },
+  "cross_check_mismatches": 0,
+  "history": "The pre-chosen rule (endpoint drop > 20 over 10 readings) passed the stage 4 check on 2 of 15 validation engines in the Java service: it fired on prediction jitter. The simulator also exposed a Java bug (the first score was counted twice when the engine rebuilt its state). Both were fixed before the test split was replayed."
+}

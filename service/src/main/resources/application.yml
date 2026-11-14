@@ -37,11 +37,13 @@ monitor:
   window:
     size: 30
     store: ${MONITOR_WINDOW_STORE:redis}
-  alerts:
+  alerts:                      # trend rule designed on the validation engines: results/alert_rule_design_val.json
     warning-below: 60
     critical-below: 30
-    trend-drop: 20
-    trend-window: 10
+    trend-window: 30
+    trend-slope: -2.0
+    trend-clear-slope: -1.5
+    min-window-rows: 30          # warm-up: no alert opens before the feature window is full
     close-after: 5
     hysteresis: 10
 

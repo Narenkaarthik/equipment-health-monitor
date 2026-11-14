@@ -1,0 +1,410 @@
+{
+  "summary": {
+    "split": "val",
+    "tag": "",
+    "engines": 15,
+    "readings": 2975,
+    "seconds": 6.0,
+    "engines_passing": 15,
+    "alerts_total": 30,
+    "warning_alerts": 15,
+    "critical_alerts": 15,
+    "mean_true_rul_at_warning": 56.7,
+    "min_true_rul_at_warning": 38,
+    "mean_true_rul_at_critical": 29.0,
+    "min_true_rul_at_critical": 19,
+    "engines_ending_critical": 15
+  },
+  "engines": [
+    {
+      "unit": 6,
+      "life": 188,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 126,
+          "true_rul_at_open": 62,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 148,
+          "true_rul_at_open": 40,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 7,
+      "life": 259,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 204,
+          "true_rul_at_open": 55,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 225,
+          "true_rul_at_open": 34,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 9,
+      "life": 201,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 156,
+          "true_rul_at_open": 45,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 167,
+          "true_rul_at_open": 34,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 22,
+      "life": 202,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 122,
+          "true_rul_at_open": 80,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 178,
+          "true_rul_at_open": 24,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 36,
+      "life": 158,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 111,
+          "true_rul_at_open": 47,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 129,
+          "true_rul_at_open": 29,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 44,
+      "life": 192,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 144,
+          "true_rul_at_open": 48,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 161,
+          "true_rul_at_open": 31,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 47,
+      "life": 214,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 155,
+          "true_rul_at_open": 59,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 180,
+          "true_rul_at_open": 34,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 50,
+      "life": 198,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 138,
+          "true_rul_at_open": 60,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 165,
+          "true_rul_at_open": 33,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 55,
+      "life": 193,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 140,
+          "true_rul_at_open": 53,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 167,
+          "true_rul_at_open": 26,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 61,
+      "life": 185,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_trend",
+          "opened_cycle": 127,
+          "true_rul_at_open": 58,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 161,
+          "true_rul_at_open": 24,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 64,
+      "life": 283,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 211,
+          "true_rul_at_open": 72,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 255,
+          "true_rul_at_open": 28,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 79,
+      "life": 199,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 149,
+          "true_rul_at_open": 50,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 177,
+          "true_rul_at_open": 22,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 88,
+      "life": 213,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 139,
+          "true_rul_at_open": 74,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 178,
+          "true_rul_at_open": 35,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 91,
+      "life": 135,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 85,
+          "true_rul_at_open": 50,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 113,
+          "true_rul_at_open": 22,
+          "closed_cycle": 0
+        }
+      ]
+    },
+    {
+      "unit": 93,
+      "life": 155,
+      "severities": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "pass": true,
+      "final_status": "CRITICAL",
+      "alerts": [
+        {
+          "severity": "WARNING",
+          "rule": "rul_threshold",
+          "opened_cycle": 117,
+          "true_rul_at_open": 38,
+          "closed_cycle": 0
+        },
+        {
+          "severity": "CRITICAL",
+          "rule": "rul_threshold",
+          "opened_cycle": 136,
+          "true_rul_at_open": 19,
+          "closed_cycle": 0
+        }
+      ]
+    }
+  ]
+}

@@ -70,6 +70,8 @@ public abstract class IntegrationTestBase {
         } else {
             registry.add("spring.data.redis.host", () -> envOr(ENV_REDIS, "localhost"));
             registry.add("spring.data.redis.port", () -> envOr("MONITOR_TEST_REDIS_PORT", "6379"));
+            // a separate logical database, so tests never leave window state behind for a dev service on db 0
+            registry.add("spring.data.redis.database", () -> envOr("MONITOR_TEST_REDIS_DB", "1"));
         }
         if (KAFKA != null) {
             registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);

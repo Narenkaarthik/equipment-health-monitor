@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 /** Stage 4 transitions: open once, stay open, close only after K clear readings, status follows severity. */
 class AlertEngineTest {
 
-    // warning < 60, critical < 30, trend drop > 20 over 10, close after 5 clear, hysteresis 10
+    // warning < 60, critical < 30, trend slope < -2 over 30 (clear above -1.5, full window), close after 5 clear, hysteresis 10
     final AlertRules rules = AlertRules.defaults();
     InMemoryAlertRepository repo;
     Map<Integer, String> status;
@@ -27,7 +27,7 @@ class AlertEngineTest {
         repo = new InMemoryAlertRepository();
         status = new HashMap<>();
         events = new ArrayList<>();
-        engine = new AlertEngine(rules, repo, status::put, events::add, (m, n) -> List.of());
+        engine = new AlertEngine(rules, repo, status::put, events::add, (m, before, n) -> List.of());
         cycle = 0;
     }
 
@@ -101,20 +101,63 @@ class AlertEngineTest {
     }
 
     @Test
-    void trendRuleOpensAWarningOnASharpDropWhileStillAboveThreshold() {
-        scores(120, 11);
-        for (int i = 1; i <= 10; i++) {
-            score(120 - 3 * i); // 117 .. 90: drop of 30 over 10 readings
+    void trendRuleOpensAWarningOnASharpFallWhileStillAboveThreshold() {
+        scores(124, 30);
+        int fallFrom = cycle;
+        for (int i = 1; i <= 15; i++) {
+            score(124 - 4 * i); // falling 4 cycles per reading: 120 .. 64, never below the WARNING threshold
         }
         assertThat(repo.all).hasSize(1);
-        assertThat(repo.all.get(0).rule()).isEqualTo(AlertEngine.RULE_TREND);
-        assertThat(repo.all.get(0).severity()).isEqualTo(Severity.WARNING);
-        // flat again: the drop leaves the window one reading at a time (clear from the 4th flat reading),
-        // then K = 5 clear readings close it: closed on the 8th flat reading, not before
-        scores(90, 7);
+        Alert a = repo.all.get(0);
+        assertThat(a.rule()).isEqualTo(AlertEngine.RULE_TREND);
+        assertThat(a.severity()).isEqualTo(Severity.WARNING);
+        assertThat(a.openedCycle()).isGreaterThan(fallFrom);
+        assertThat(a.detail()).contains("cycles per reading");
+        // flat again at 80 (above 60 + hysteresis): the fitted slope recovers, then K = 5 clear readings close it
+        scores(80, 5);
         assertThat(repo.all.get(0).open()).isTrue();
-        score(90);
+        scores(80, 40);
         assertThat(repo.all.get(0).open()).isFalse();
+        assertThat(repo.all).hasSize(1);
+    }
+
+    @Test
+    void trendRuleIgnoresJitterAroundAFlatLevel() {
+        // +-15 cycles of alternating jitter: an endpoint difference over 10 readings would fire; a 30-reading fit does not
+        for (int i = 0; i < 200; i++) {
+            score(i % 2 == 0 ? 105 : 90);
+        }
+        assertThat(repo.all).isEmpty();
+    }
+
+    @Test
+    void noAlertOpensDuringWarmUp() {
+        // a falling, then critically low RUL, but the feature window never fills: nothing may open
+        for (int i = 0; i < 40; i++) {
+            engine.onScore(new HealthScore(1, ++cycle, Math.max(0, 124 - 4 * i), "test", 10, Instant.ofEpochSecond(cycle)));
+        }
+        assertThat(repo.all).isEmpty();
+        // the first reading with a full window opens both, threshold first
+        engine.onScore(new HealthScore(1, ++cycle, 5, "test", 30, Instant.ofEpochSecond(cycle)));
+        assertThat(repo.all).extracting(Alert::severity).containsExactly(Severity.WARNING, Severity.CRITICAL);
+    }
+
+    @Test
+    void slopeIsTheLeastSquaresSlope() {
+        assertThat(AlertEngine.slope(List.of(1.0, 2.0, 4.0))).isEqualTo(1.5);
+        assertThat(AlertEngine.slope(List.of(5.0, 5.0, 5.0))).isEqualTo(0.0);
+        assertThat(AlertEngine.slope(List.of(7.0))).isEqualTo(0.0);
+    }
+
+    @Test
+    void rebuildAsksOnlyForScoresBeforeTheCurrentCycle() {
+        List<Integer> asked = new ArrayList<>();
+        AlertEngine fresh = new AlertEngine(rules, repo, status::put, events::add, (m, before, n) -> {
+            asked.add(before);
+            return List.of();
+        });
+        fresh.onScore(new HealthScore(1, 77, 100, "test", 30, Instant.ofEpochSecond(77)));
+        assertThat(asked).containsExactly(77);
     }
 
     @Test
@@ -140,7 +183,7 @@ class AlertEngineTest {
     @Test
     void stateIsRebuiltFromRepositoriesAfterARestart() {
         scores(55, 3);
-        AlertEngine restarted = new AlertEngine(rules, repo, status::put, events::add, (m, n) -> List.of(55.0, 55.0, 55.0));
+        AlertEngine restarted = new AlertEngine(rules, repo, status::put, events::add, (m, before, n) -> List.of(55.0, 55.0, 55.0));
         // same machine keeps its open WARNING: no second alert is opened
         restarted.onScore(new HealthScore(1, 4, 55, "test", 30, Instant.ofEpochSecond(4)));
         assertThat(repo.all).hasSize(1);

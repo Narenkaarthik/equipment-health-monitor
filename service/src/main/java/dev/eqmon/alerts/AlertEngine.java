@@ -18,8 +18,10 @@ import java.util.function.Consumer;
  * <p>Semantics (docs/architecture.md, "Alerts"):
  * <ul>
  *   <li>Two rule types. Threshold: predicted RUL below {@code criticalBelow} is CRITICAL, below
- *       {@code warningBelow} is WARNING. Trend: RUL fell by more than {@code trendDrop} over the last
- *       {@code trendWindow} scored readings (WARNING).</li>
+ *       {@code warningBelow} is WARNING. Trend: the least-squares slope of predicted RUL over the last
+ *       {@code trendWindow} readings is below {@code trendSlope} (WARNING), evaluated only once the
+ *       feature window is full. A slope, not an end-to-end difference, because single predictions jitter
+ *       by several cycles and an endpoint difference fires on that jitter (docs/architecture.md, Alerts).</li>
  *   <li>A machine has at most one open alert per severity. The first rule that raises a severity opens
  *       it; while it is open, nothing re-fires for that severity, so an alert never repeats per reading.</li>
  *   <li>An open alert closes only after every condition of its severity has been clear for
@@ -42,10 +44,14 @@ public class AlertEngine implements HealthScoreListener {
     private final RecentScores recentScores;
     private final Map<Integer, MachineAlertState> states = new ConcurrentHashMap<>();
 
-    /** Supplies the last N predicted RULs of a machine (oldest first) when state is rebuilt after a restart. */
+    /**
+     * Supplies the last N predicted RULs of a machine strictly before a cycle (oldest first), used when
+     * state is rebuilt after a restart. "Strictly before": the score being evaluated is already stored
+     * when the engine first sees the machine, and must not be counted twice.
+     */
     @FunctionalInterface
     public interface RecentScores {
-        List<Double> lastRuls(int machineId, int n);
+        List<Double> lastRuls(int machineId, int beforeCycle, int n);
     }
 
     public AlertEngine(AlertRules rules, AlertRepository alerts, BiConsumer<Integer, String> statusStore,
@@ -59,7 +65,7 @@ public class AlertEngine implements HealthScoreListener {
 
     @Override
     public void onScore(HealthScore score) {
-        MachineAlertState st = states.computeIfAbsent(score.machineId(), this::rebuild);
+        MachineAlertState st = states.computeIfAbsent(score.machineId(), id -> rebuild(id, score.cycle()));
         synchronized (st) {
             evaluate(st, score);
         }
@@ -68,7 +74,7 @@ public class AlertEngine implements HealthScoreListener {
     private void evaluate(MachineAlertState st, HealthScore score) {
         double rul = score.predictedRul();
         st.recent.addLast(rul);
-        while (st.recent.size() > rules.trendWindow() + 1) {
+        while (st.recent.size() > rules.trendWindow()) {
             st.recent.removeFirst();
         }
 
@@ -91,10 +97,13 @@ public class AlertEngine implements HealthScoreListener {
         if (rul < rules.warningBelow() + rules.hysteresis()) {
             clear.put(Severity.WARNING, false);
         }
-        if (st.recent.size() > rules.trendWindow()) {
-            double drop = st.recent.peekFirst() - rul;
-            if (drop > rules.trendDrop()) {
-                firing.get(Severity.WARNING).add(String.format("%s: predicted RUL fell %.1f over %d readings", RULE_TREND, drop, rules.trendWindow()));
+        if (st.recent.size() >= rules.trendWindow() && score.windowRows() >= rules.minWindowRows()) {
+            double slope = slope(st.recent);
+            if (slope < rules.trendSlope()) {
+                firing.get(Severity.WARNING).add(String.format("%s: predicted RUL falling %.1f cycles per reading over %d readings",
+                        RULE_TREND, -slope, rules.trendWindow()));
+            }
+            if (slope < rules.trendClearSlope()) {
                 clear.put(Severity.WARNING, false);
             }
         }
@@ -103,7 +112,8 @@ public class AlertEngine implements HealthScoreListener {
             Alert open = st.open.get(sev);
             List<String> reasons = firing.get(sev);
             if (open == null) {
-                if (!reasons.isEmpty()) {
+                // warm-up: a prediction from a half-filled window is too noisy to open an alert on
+                if (!reasons.isEmpty() && score.windowRows() >= rules.minWindowRows()) {
                     String rule = reasons.get(0).startsWith(RULE_TREND) ? RULE_TREND : RULE_THRESHOLD;
                     Alert created = alerts.open(new Alert(0, score.machineId(), rule, sev, String.join("; ", reasons),
                             score.cycle(), score.scoredAt(), null, null, null));
@@ -164,12 +174,32 @@ public class AlertEngine implements HealthScoreListener {
         states.clear();
     }
 
-    private MachineAlertState rebuild(int machineId) {
+    /** Least-squares slope of the values against their position 0..n-1. */
+    static double slope(java.util.Collection<Double> values) {
+        int n = values.size();
+        double mx = (n - 1) / 2.0;
+        double my = 0;
+        for (double v : values) {
+            my += v;
+        }
+        my /= n;
+        double sxy = 0;
+        double sxx = 0;
+        int i = 0;
+        for (double v : values) {
+            sxy += (i - mx) * (v - my);
+            sxx += (i - mx) * (i - mx);
+            i++;
+        }
+        return sxx == 0 ? 0 : sxy / sxx;
+    }
+
+    private MachineAlertState rebuild(int machineId, int currentCycle) {
         MachineAlertState st = new MachineAlertState();
         for (Alert a : alerts.openFor(machineId)) {
             st.open.put(a.severity(), a);
         }
-        st.recent.addAll(recentScores.lastRuls(machineId, rules.trendWindow() + 1));
+        st.recent.addAll(recentScores.lastRuls(machineId, currentCycle, rules.trendWindow() - 1));
         st.status = st.open.containsKey(Severity.CRITICAL) ? Severity.CRITICAL.name()
                 : st.open.containsKey(Severity.WARNING) ? Severity.WARNING.name() : Severity.HEALTHY;
         return st;

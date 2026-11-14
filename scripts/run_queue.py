@@ -3,8 +3,8 @@ fits whose checkpoint exists and runs whose run_id is already in results/runs.cs
 results/status.json after every step so progress is visible from outside.
 
 Launch detached with scripts/launch_detached.ps1 so it survives the end of an interactive session.
-    python scripts/queue.py            # main experiment
-    python scripts/queue.py --ablations  # post hoc ablations (model/ablations.py)
+    python scripts/run_queue.py            # main experiment
+    python scripts/run_queue.py --ablations  # post hoc ablations (model/ablations.py)
 """
 from __future__ import annotations
 

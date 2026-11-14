@@ -1,6 +1,6 @@
 # Launches a command detached from the calling console (WMI spawn, own process group) so it keeps
 # running after an interactive session ends. Output goes to results/logs/<name>.out.
-# Usage: powershell -File scripts/launch_detached.ps1 -Name queue -Command "python scripts/queue.py"
+# Usage: powershell -File scripts/launch_detached.ps1 -Name queue -Command "python scripts/run_queue.py"
 param(
   [Parameter(Mandatory = $true)][string]$Name,
   [Parameter(Mandatory = $true)][string]$Command
