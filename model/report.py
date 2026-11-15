@@ -55,8 +55,9 @@ def pm(m, s, nd=2) -> str:
 
 
 def to_tex(df: pd.DataFrame, align: str) -> str:
+    # escape=False keeps our math, so escape the one LaTeX special that can appear in a header or cell: % starts a comment
     tex = df.to_latex(index=False, escape=False, column_format=align)
-    return tex.replace("±", "$\\pm$").replace("−", "$-$")
+    return tex.replace("%", "\\%").replace("±", "$\\pm$").replace("−", "$-$")
 
 
 def summarise(runs: pd.DataFrame) -> pd.DataFrame:
@@ -98,25 +99,39 @@ def main_table(summary):
 
 
 def which8_table(summary, runs):
+    """Point estimates with the engine-level 95% interval of the gap (results/bootstrap.json) where one exists."""
     full = row(summary, "main", "full21")
+    bs = json.loads((ROOT / "results" / "bootstrap.json").read_text())["gaps"]
+
+    def interval(name):
+        return f"{fmt(bs[name]['ci95_low'])} to {fmt(bs[name]['ci95_high'])}" if name in bs else "--"
+
+    def verdict(name, gap):
+        if name in bs:
+            v = bs[name]
+            return "no" if v["inferior_by_ci"] else ("yes" if v["non_inferior_by_ci"] else "unresolved")
+        return "--"
+
     rows = []
     for name, phase in [("full21", "main"), ("reduced8", "main"), ("greedy8", "posthoc"), ("worst8", "posthoc")]:
         r = row(summary, phase, name)
         if r is None:
             continue
+        gap = r.test_rmse_mean - full.test_rmse_mean
         rows.append({"Sensor set": ARM_LABEL[name], "Chosen by": {"full21": "all", "reduced8": "pre-registered ranking (train)",
                                                                   "greedy8": "forward selection (validation)", "worst8": "bottom of the ranking"}[name],
-                     "Test RMSE": pm(r.test_rmse_mean, r.test_rmse_std), "Gap to 21": fmt(r.test_rmse_mean - full.test_rmse_mean),
-                     "Within 1.0": "" if name == "full21" else ("yes" if r.test_rmse_mean - full.test_rmse_mean < MARGIN else "no"),
+                     "Test RMSE": pm(r.test_rmse_mean, r.test_rmse_std), "Gap to 21": fmt(gap) if name != "full21" else "",
+                     "95% interval (engines)": interval(name) if name != "full21" else "",
+                     "Non-inferior": verdict(name, gap) if name != "full21" else "",
                      "Phase": "pre-registered" if phase == "main" else "post hoc"})
     rnd = runs[runs.arm.str.startswith("random8-")]
     if len(rnd):
-        m, s = rnd.test_rmse.mean(), rnd.test_rmse.std()
+        m, sd = rnd.test_rmse.mean(), rnd.test_rmse.std()
         rows.insert(3, {"Sensor set": f"{ARM_LABEL['random8']} ({rnd.arm.nunique()} draws)", "Chosen by": "random",
-                        "Test RMSE": pm(m, s), "Gap to 21": fmt(m - full.test_rmse_mean),
-                        "Within 1.0": "yes" if m - full.test_rmse_mean < MARGIN else "no", "Phase": "post hoc"})
+                        "Test RMSE": pm(m, sd), "Gap to 21": fmt(m - full.test_rmse_mean), "95% interval (engines)": "--",
+                        "Non-inferior": "--", "Phase": "post hoc"})
     df = pd.DataFrame(rows)
-    return df.to_markdown(index=False), to_tex(df, "llrrcl")
+    return df.to_markdown(index=False), to_tex(df, "llrrrcl")
 
 
 def recipe_table(summary):
@@ -140,12 +155,27 @@ def loadtest_table():
     p = ROOT / "results" / "loadtest.csv"
     if not p.exists():
         return "(no load test yet)", "% no load test yet", None
-    lt = pd.read_csv(p)
-    df = pd.DataFrame({"Run": lt.label, "Pipeline": lt.pipeline, "Users": lt.vus, "Batch": lt.batch,
-                       "Readings/s": lt.readings_per_s.map(lambda v: fmt(v, 0)), "p50 ms": lt.p50_ms.map(fmt),
-                       "p95 ms": lt.p95_ms.map(fmt), "p99 ms": lt.p99_ms.map(fmt), "Pool waits": lt.pool_pending_mean.map(fmt),
-                       "Change": lt.settings.fillna("")})
-    return df.to_markdown(index=False), to_tex(df.drop(columns=["Change"]), "llrrrrrrr"), lt
+    raw = pd.read_csv(p)
+    raw["processed_rps"] = raw.scored / (raw.duration_s + raw.drain_s)
+    # one row per configuration: mean over repeats, with the spread of the headline columns
+    g = raw.groupby("label", sort=False)
+    lt = g.agg(pipeline=("pipeline", "first"), vus=("vus", "first"), batch=("batch", "first"), settings=("settings", "first"),
+               duration_s=("duration_s", "first"), runs=("run", "count"),
+               readings_per_s=("readings_per_s", "mean"), rps_std=("readings_per_s", "std"),
+               p50_ms=("p50_ms", "mean"), p95_ms=("p95_ms", "mean"), p95_std=("p95_ms", "std"),
+               p99_ms=("p99_ms", "mean"), p99_std=("p99_ms", "std"),
+               pool_pending_mean=("pool_pending_mean", "mean"), pool_pending_max=("pool_pending_max", "max"),
+               cpu_mean=("cpu_mean", "mean"), processing_ms_mean=("processing_ms_mean", "mean"),
+               inference_ms_mean=("inference_ms_mean", "mean"), drain_s=("drain_s", "mean"),
+               scored=("scored", "min"), stored=("stored", "min"), processed_rps=("processed_rps", "mean"),
+               failed_rate=("failed_rate", "max")).reset_index()
+    lt = lt.fillna({"rps_std": 0.0, "p95_std": 0.0, "p99_std": 0.0})
+    df = pd.DataFrame({"Run": lt.label, "Pipeline": lt.pipeline, "Repeats": lt.runs,
+                       "Readings/s": [pm(m, s, 0) for m, s in zip(lt.readings_per_s, lt.rps_std)], "p50 ms": lt.p50_ms.map(fmt),
+                       "p95 ms": [pm(m, s, 1) for m, s in zip(lt.p95_ms, lt.p95_std)],
+                       "p99 ms": [pm(m, s, 1) for m, s in zip(lt.p99_ms, lt.p99_std)],
+                       "Pool waits": lt.pool_pending_mean.map(fmt), "Change": lt.settings.fillna("")})
+    return df.to_markdown(index=False), to_tex(df.drop(columns=["Change"]), "llrrrrrr"), lt
 
 
 # ---------------------------------------------------------------- figures
@@ -199,7 +229,7 @@ def figures(summary, runs, lt):
     ax.set_xticks(range(len(groups)), [n for n, _ in groups], fontsize=8)
     ax.set_xlim(-0.6, len(groups) - 0.4)
     ax.set_ylabel("test RMSE (cycles)")
-    ax.set_title("It is which 8, not how many: every run (dots) and the mean (bar)", fontsize=9)
+    ax.set_title("Every 8-sensor run (dots) and the mean (bar); the spread shown is over seeds only", fontsize=9)
     plotstyle.save(fig, FIG / "which_eight")
 
     # 3. recipe sensitivity: gap across window and cap
@@ -281,10 +311,11 @@ def figures(summary, runs, lt):
     if lt is not None and len(lt):
         fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.6))
         xs = np.arange(len(lt))
-        axes[0].bar(xs, lt.readings_per_s, color=plotstyle.SERIES[0], width=0.6)
+        axes[0].bar(xs, lt.readings_per_s, color=plotstyle.SERIES[0], width=0.6, yerr=lt.rps_std, capsize=3,
+                    error_kw={"elinewidth": 1, "ecolor": plotstyle.INK_2})
         for xi, v in zip(xs, lt.readings_per_s):
             axes[0].text(xi, v, fmt(v, 0), ha="center", va="bottom", fontsize=7.5, color=plotstyle.INK_2)
-        axes[0].set_title("throughput (readings per second)", fontsize=9)
+        axes[0].set_title("throughput (readings per second, mean ± std of repeats)", fontsize=9)
         w = 0.26
         for j, (col, lab) in enumerate([("p50_ms", "p50"), ("p95_ms", "p95"), ("p99_ms", "p99")]):
             axes[1].bar(xs + (j - 1) * w, lt[col], width=w, color=plotstyle.SEQUENTIAL[2 + 3 * j], label=lab)
@@ -366,6 +397,20 @@ def numbers(summary, runs, lt) -> dict:
     put("reduced8_sensors", ", ".join(s[1:] for s in arms["reduced8"]))
     put("informative_sensors", ", ".join(s[1:] for s in arms["informative15"]))
     put("constant_sensors", ", ".join(s[1:] for s in arms["full21"] if s not in arms["informative15"]))
+    bs = json.loads((ROOT / "results" / "bootstrap.json").read_text())
+    put("boot_full21_ci_low", bs["full21_rmse_ci95"][0])
+    put("boot_full21_ci_high", bs["full21_rmse_ci95"][1])
+    put("boot_ci_over_seed", bs["full21_ci_halfwidth_over_seed_std"], 0)
+    put("boot_draws", bs["draws"])
+    for a, v in bs["gaps"].items():
+        put(f"boot_{a}_gap_low", v["ci95_low"])
+        put(f"boot_{a}_gap_high", v["ci95_high"])
+        put(f"boot_{a}_below_margin_pct", 100 * v["share_of_draws_below_margin"], 0)
+    for a, v in bs["vs_reduced8"].items():
+        put(f"boot_{a}_vs_ranked", v["diff"])
+        put(f"boot_{a}_vs_ranked_low", v["ci95_low"])
+        put(f"boot_{a}_vs_ranked_high", v["ci95_high"])
+        put(f"boot_{a}_better_than_ranked", v["better_by_ci"])
     red = json.loads((ROOT / "results" / "redundancy.json").read_text())
     for k in ("reduced8", "worst8", "greedy8", "informative15"):
         put(f"redundancy_{k}", red[k], 2)
@@ -471,11 +516,30 @@ def numbers(summary, runs, lt) -> dict:
             put(f"lt_{k}_drain_s", r.drain_s, 1)
             put(f"lt_{k}_scored", int(r.scored))
             # sustained processing rate including the drain after k6 stops
-            put(f"lt_{k}_processed_rps", r.scored / (r.duration_s + r.drain_s), 0)
+            put(f"lt_{k}_processed_rps", r.processed_rps, 0)
+            put(f"lt_{k}_rps_std", r.rps_std, 0)
+            put(f"lt_{k}_p95_std", r.p95_std, 1)
+            put(f"lt_{k}_p99_std", r.p99_std, 1)
+            put(f"lt_{k}_runs", int(r.runs))
             put(f"lt_{k}_pool", re.search(r"MONITOR_DB_POOL=(\d+)", str(r.settings)).group(1) if "MONITOR_DB_POOL" in str(r.settings) else 10)
         if {"before", "after"} <= set(lt.label):
             b, a = lt.set_index("label").loc["before"], lt.set_index("label").loc["after"]
             put("lt_gain_pct", 100 * (a.readings_per_s / b.readings_per_s - 1), 0)
+        # paired by repeat block (configurations were interleaved, so block b ran all configurations back to back)
+        raw = pd.read_csv(ROOT / "results" / "loadtest.csv").pivot_table(index="run", columns="label", values="readings_per_s")
+        for key, a_lab, b_lab in [("pool", "before", "after"), ("cache", "after", "after-cache"), ("total", "before", "after-cache")]:
+            if {a_lab, b_lab} <= set(raw.columns):
+                g = 100 * (raw[b_lab] / raw[a_lab] - 1)
+                put(f"lt_{key}_gain_min", g.min(), 0)
+                put(f"lt_{key}_gain_max", g.max(), 0)
+                put(f"lt_{key}_gain_positive", int((g > 0).sum()))
+                put(f"lt_{key}_gain_blocks", int(g.notna().sum()))
+        put("lt_pool_waits_all_runs_max_after", pd.read_csv(ROOT / "results" / "loadtest.csv").query("label != 'before'").pool_pending_mean.max(), 1)
+        put("lt_pool_waits_all_runs_min_before", pd.read_csv(ROOT / "results" / "loadtest.csv").query("label == 'before'").pool_pending_mean.min(), 1)
+        if {"after", "after-cache"} <= set(lt.label):
+            a, c = lt.set_index("label").loc["after"], lt.set_index("label").loc["after-cache"]
+            put("lt_cache_gain_pct", 100 * (c.readings_per_s / a.readings_per_s - 1), 0)
+            put("lt_total_gain_pct", 100 * (c.readings_per_s / lt.set_index("label").loc["before"].readings_per_s - 1), 0)
         best = lt.loc[lt.readings_per_s.idxmax()]
         put("lt_best_label", best.label)
         put("lt_best_rps", best.readings_per_s, 0)
@@ -517,6 +581,7 @@ def render(template: Path, out: Path, n: dict, t: dict) -> None:
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")  # the tables contain real minus signs; a Windows console is cp1252
     runs = load_runs()
     summary = summarise(runs)
     TABLES.mkdir(parents=True, exist_ok=True)

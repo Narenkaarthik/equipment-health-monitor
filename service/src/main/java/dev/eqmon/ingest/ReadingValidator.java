@@ -2,7 +2,7 @@ package dev.eqmon.ingest;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.function.IntPredicate;
 import org.springframework.stereotype.Component;
 
 /** Validates a batch of readings: known machine, positive cycle, three settings, all 21 sensors present. */
@@ -13,10 +13,10 @@ public class ReadingValidator {
 
     /**
      * @param batch the readings as posted
-     * @param knownMachines ids that exist in the fleet
+     * @param knownMachines true for ids that exist in the fleet
      * @return every problem found; empty means the whole batch is acceptable
      */
-    public List<Problem> validate(List<ReadingRequest> batch, Set<Integer> knownMachines) {
+    public List<Problem> validate(List<ReadingRequest> batch, IntPredicate knownMachines) {
         List<Problem> problems = new ArrayList<>();
         for (int i = 0; i < batch.size(); i++) {
             ReadingRequest r = batch.get(i);
@@ -26,7 +26,7 @@ public class ReadingValidator {
             }
             if (r.machineId() == null) {
                 problems.add(new Problem(i, "machineId is required"));
-            } else if (!knownMachines.contains(r.machineId())) {
+            } else if (!knownMachines.test(r.machineId())) {
                 problems.add(new Problem(i, "unknown machine " + r.machineId()));
             }
             if (r.cycle() == null) {

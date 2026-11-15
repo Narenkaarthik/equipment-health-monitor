@@ -110,6 +110,11 @@ def main() -> None:
         step("experiments (resumable; existing runs are skipped)")
         py("scripts/run_queue.py")
         py("scripts/run_queue.py", "--ablations")
+        step("audits and uncertainty")
+        py("model/audit_main.py")      # checkpoints, recomputed scores, column mapping
+        py("model/config_audit.py")    # the recipe did not change during the runs
+        py("model/redundancy.py")      # how much each 8-sensor set repeats itself
+        py("model/bootstrap.py")       # engine-level intervals for every gap
     step("4. the deployed model reproduces")
     deployed_model_reproduces()
     step("5. Java build and tests")

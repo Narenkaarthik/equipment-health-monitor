@@ -15,7 +15,8 @@ a 1.0-cycle margin. So the service ships all 21.
 
 The post hoc analysis was more interesting than the verdict:
 - the 8 "best" sensors were near-copies of each other (correlation 0.97);
-- 8 sensors chosen by forward selection came within 0.89 cycles;
+- 8 sensors chosen by forward selection came within 0.89 cycles, but with 15 test engines the
+  95% interval (−0.05 to 1.96) cannot say whether 8 is enough;
 - the window length moved the error by about as much as the sensors did.
 
 So the experiment said "no", and the ablations said "not like that".
@@ -38,8 +39,8 @@ every choice committed to a config file first.
 3/ Result: rejected. The 8 ranked sensors were 2.57 cycles RMSE worse than all 21 (12.99).
 The service ships 21.
 
-4/ Post hoc: the ranked 8 were redundant (r = 0.97). 8 chosen by forward selection: +0.89.
-It's which sensors, not how many.
+4/ Post hoc: the ranked 8 were redundant (r = 0.97). 8 chosen by forward selection: +0.89,
+but the interval over 15 test engines spans the margin. The ranking failed; whether 8 sensors can work is open.
 
 5/ And the window length mattered about as much as the sensors. A verdict that depends on a recipe choice that
 large is itself the finding.

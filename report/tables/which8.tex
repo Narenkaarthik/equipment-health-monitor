@@ -1,11 +1,11 @@
-\begin{tabular}{llrrcl}
+\begin{tabular}{llrrrcl}
 \toprule
-Sensor set & Chosen by & Test RMSE & Gap to 21 & Within 1.0 & Phase \\
+Sensor set & Chosen by & Test RMSE & Gap to 21 & 95\% interval (engines) & Non-inferior & Phase \\
 \midrule
-all 21 sensors & all & 12.99 $\pm$ 0.07 & 0.00 &  & pre-registered \\
-8 ranked sensors & pre-registered ranking (train) & 15.56 $\pm$ 0.06 & 2.57 & no & pre-registered \\
-8 sensors, greedy on validation & forward selection (validation) & 13.88 $\pm$ 0.12 & 0.89 & yes & post hoc \\
-8 random sensors (3 draws) & random & 14.74 $\pm$ 0.77 & 1.75 & no & post hoc \\
-8 lowest-ranked sensors & bottom of the ranking & 13.96 $\pm$ 0.07 & 0.97 & yes & post hoc \\
+all 21 sensors & all & 12.99 $\pm$ 0.07 &  &  &  & pre-registered \\
+8 ranked sensors & pre-registered ranking (train) & 15.56 $\pm$ 0.06 & 2.57 & 1.24 to 3.89 & no & pre-registered \\
+8 sensors, greedy on validation & forward selection (validation) & 13.88 $\pm$ 0.12 & 0.89 & $-$0.05 to 1.96 & unresolved & post hoc \\
+8 random sensors (3 draws) & random & 14.74 $\pm$ 0.77 & 1.75 & -- & -- & post hoc \\
+8 lowest-ranked sensors & bottom of the ranking & 13.96 $\pm$ 0.07 & 0.97 & $-$0.28 to 2.14 & unresolved & post hoc \\
 \bottomrule
 \end{tabular}

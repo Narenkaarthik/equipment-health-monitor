@@ -88,6 +88,8 @@
   const css = getComputedStyle(document.documentElement);
   const C = (v) => css.getPropertyValue(v).trim();
   const api = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p + " -> " + r.status); return r.json(); });
+  // every server-provided string goes through this before it reaches innerHTML (names come from an open API)
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fleet = new Map();     // id -> row
   let selected = null;
   const SENSORS = ["s11", "s4", "s7", "s12"];
@@ -125,8 +127,8 @@
     const counts = { HEALTHY: 0, WARNING: 0, CRITICAL: 0 };
     body.innerHTML = rows.map((m) => {
       counts[m.status] = (counts[m.status] || 0) + 1;
-      return `<tr class="machine ${m.status} ${selected === m.id ? "selected" : ""}" data-id="${m.id}">
-        <td><span class="dot"></span>${m.name}</td><td>${m.status.toLowerCase()}</td>
+      return `<tr class="machine ${esc(m.status)} ${selected === m.id ? "selected" : ""}" data-id="${esc(m.id)}">
+        <td><span class="dot"></span>${esc(m.name)}</td><td>${esc(m.status.toLowerCase())}</td>
         <td class="num">${m.lastCycle ?? "–"}</td><td class="num">${m.predictedRul == null ? "–" : m.predictedRul.toFixed(1)}</td></tr>`;
     }).join("");
     document.getElementById("nHealthy").textContent = counts.HEALTHY;
@@ -167,9 +169,9 @@
     const when = new Date(a.openedAt).toLocaleTimeString();
     const state = a.closedAt ? `closed at cycle ${a.closedCycle}` : (a.acknowledgedAt ? "open, acknowledged" : "open");
     const name = fleet.get(a.machineId)?.name || ("machine " + a.machineId);
-    return `<li data-id="${a.id}"><span class="badge ${a.severity}">${a.severity}</span> <b>${name}</b> cycle ${a.openedCycle}
-      <span class="when">${when}</span><br>${a.detail}<br><span class="when">${state}</span>
-      ${a.closedAt || a.acknowledgedAt ? "" : `<button data-ack="${a.id}">acknowledge</button>`}</li>`;
+    return `<li data-id="${esc(a.id)}"><span class="badge ${esc(a.severity)}">${esc(a.severity)}</span> <b>${esc(name)}</b> cycle ${esc(a.openedCycle)}
+      <span class="when">${esc(when)}</span><br>${esc(a.detail)}<br><span class="when">${esc(state)}</span>
+      ${a.closedAt || a.acknowledgedAt ? "" : `<button data-ack="${esc(a.id)}">acknowledge</button>`}</li>`;
   }
   async function loadAlerts() {
     const list = await api("/api/alerts?status=all&limit=200");

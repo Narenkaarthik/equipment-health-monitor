@@ -42,6 +42,12 @@ group (the processor) reads the topic and does the rest.
   (`GET /api/machines/{id}/health`) or listen on `/api/stream`.
 - Messages that fail three times go to `readings.DLT` for a human to look at, instead of
   blocking the partition.
+- Ingest writes to two systems (PostgreSQL and Kafka) without a shared transaction. A commit that fails after the
+  broker acknowledged leaves a processed reading with no stored row. A transactional outbox would close the gap;
+  it is documented in `docs/architecture.md` and not built.
+- Measured on one laptop, the Kafka pipeline did not make ingest faster than the tuned direct pipeline (see
+  `docs/load-test-report.md`): waiting for `acks=all` costs about what skipping the processing saves. What it
+  buys here is isolation, durability and a path to scale processing out, not raw speed.
 
 ## Why not do this first
 

@@ -26,18 +26,18 @@ class ReadingValidatorTest {
 
     @Test
     void acceptsAValidReading() {
-        assertThat(validator.validate(List.of(valid(1, 1)), Set.of(1))).isEmpty();
+        assertThat(validator.validate(List.of(valid(1, 1)), Set.of(1)::contains)).isEmpty();
     }
 
     @Test
     void rejectsUnknownMachine() {
-        var problems = validator.validate(List.of(valid(42, 1)), Set.of(1));
+        var problems = validator.validate(List.of(valid(42, 1)), Set.of(1)::contains);
         assertThat(problems).extracting(ReadingValidator.Problem::message).containsExactly("unknown machine 42");
     }
 
     @Test
     void rejectsNonPositiveCycle() {
-        var problems = validator.validate(List.of(valid(1, 0), valid(1, -3)), Set.of(1));
+        var problems = validator.validate(List.of(valid(1, 0), valid(1, -3)), Set.of(1)::contains);
         assertThat(problems).hasSize(2);
         assertThat(problems.get(1).index()).isEqualTo(1);
         assertThat(problems.get(1).message()).contains("positive");
@@ -49,20 +49,20 @@ class ReadingValidatorTest {
         sensors.remove("s7");
         sensors.put("s21", null);
         var r = new ReadingRequest(1, 5, null, List.of(0.0, 0.0, 100.0), sensors);
-        var problems = validator.validate(List.of(r), Set.of(1));
+        var problems = validator.validate(List.of(r), Set.of(1)::contains);
         assertThat(problems).extracting(ReadingValidator.Problem::message).containsExactly("missing sensors [s7, s21]");
     }
 
     @Test
     void rejectsWrongSettingCount() {
         var r = new ReadingRequest(1, 5, null, List.of(0.0), allSensors());
-        var problems = validator.validate(List.of(r), Set.of(1));
+        var problems = validator.validate(List.of(r), Set.of(1)::contains);
         assertThat(problems).extracting(ReadingValidator.Problem::message).containsExactly("settings must have exactly 3 values");
     }
 
     @Test
     void reportsEveryProblemInABatchWithItsIndex() {
-        var problems = validator.validate(List.of(valid(1, 1), valid(9, 0)), Set.of(1));
+        var problems = validator.validate(List.of(valid(1, 1), valid(9, 0)), Set.of(1)::contains);
         assertThat(problems).extracting(ReadingValidator.Problem::index).containsExactly(1, 1);
     }
 }

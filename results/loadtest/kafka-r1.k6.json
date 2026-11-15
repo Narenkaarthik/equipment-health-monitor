@@ -1,0 +1,12 @@
+{
+  "vus": 50,
+  "duration_s": 60,
+  "batch": 1,
+  "requests": 268777,
+  "readings": 268677,
+  "readings_per_second": 4477.95,
+  "p50_ms": 7.8439,
+  "p95_ms": 22.08343999999999,
+  "p99_ms": 34.636671999999926,
+  "failed_rate": 0
+}

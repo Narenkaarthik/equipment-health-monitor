@@ -77,6 +77,7 @@ def main() -> None:
     ap.add_argument("--duration", default="60s")
     ap.add_argument("--env", action="append", default=[], help="extra KEY=VALUE for the service")
     ap.add_argument("--jvm", action="append", default=[], help="extra -D options for the service")
+    ap.add_argument("--run", type=int, default=1, help="repeat number; each repeat is a separate row")
     a = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -89,7 +90,8 @@ def main() -> None:
     topic = f"readings-load-{int(time.time())}"
     cmd = ["java", "-Dspring.data.redis.database=2", f"-Dmonitor.kafka.topic={topic}", f"-Dmonitor.kafka.group=load-{topic}",
            *[f"-D{j}" for j in a.jvm], "-jar", str(JAR)]
-    log = open(OUT / f"{a.label}.service.log", "w")
+    stem = f"{a.label}-r{a.run}"
+    log = open(OUT / f"{stem}.service.log", "w")
     svc = subprocess.Popen(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
     try:
         for _ in range(90):
@@ -104,12 +106,12 @@ def main() -> None:
         stop, samples = threading.Event(), []
         th = threading.Thread(target=sampler, args=(stop, samples), daemon=True)
         th.start()
-        summary_file = OUT / f"{a.label}.k6.json"
+        summary_file = OUT / f"{stem}.k6.json"
         k6 = subprocess.run(["k6", "run", "--quiet", "-e", f"VUS={a.vus}", "-e", f"BATCH={a.batch}", "-e", f"DURATION={a.duration}",
                              "-e", f"OUT={summary_file}", str(ROOT / "loadtest" / "ingest.js")], capture_output=True, text=True)
         stop.set()
         th.join()
-        (OUT / f"{a.label}.k6.out").write_text(k6.stdout + k6.stderr)
+        (OUT / f"{stem}.k6.out").write_text(k6.stdout + k6.stderr)
         k = json.loads(summary_file.read_text())
         # drain: in kafka mode the processor keeps working after k6 stops
         t_end = time.time()
@@ -121,7 +123,7 @@ def main() -> None:
         drain_s = round(time.time() - t_end, 1)
         busy = [s for s in samples if s["pending"] is not None]
         row = {
-            "label": a.label, "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pipeline": a.pipeline,
+            "label": a.label, "run": a.run, "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pipeline": a.pipeline,
             "vus": a.vus, "batch": a.batch, "duration_s": k["duration_s"], "requests": k["requests"], "readings": k["readings"],
             "readings_per_s": round(k["readings_per_second"], 1), "p50_ms": round(k["p50_ms"], 2), "p95_ms": round(k["p95_ms"], 2),
             "p99_ms": round(k["p99_ms"], 2), "failed_rate": k["failed_rate"],

@@ -365,6 +365,19 @@ equal to an uninterrupted run within \RestartMaxDiff{}, and alerts identical to 
 machine.
 
 \subsection{Block 6: dashboard, load test, write-up}
+
+\begin{mistake}{the seed spread was not the uncertainty}
+Every table reported mean $\pm$ standard deviation over three seeds, and post hoc 8-sensor sets were described as
+landing ``inside the margin''. A later review resampled the \SplitTest{} test engines instead: the intervals are about
+\BootCiOverSeed{} times wider, the pre-registered rejection survives, and the ``inside the margin'' claims do not.
+Lesson: when all runs share one test set, the seeds measure the model's randomness, not your luck with the test set.
+\end{mistake}
+
+\begin{mistake}{a dashboard anyone could script}
+Machine names, which anyone can set through the API, were inserted into the page as HTML. Escaping on output and
+validating on input closed it. Live events were also written on the processing thread, so one slow browser could stall
+scoring; they now go through a bounded queue on their own thread.
+\end{mistake}
 \begin{mistake}{a demo that showed nothing}
 The dashboard said ``live'' but showed no predictions. A reset script had deleted the database rows but not the
 Redis windows: \texttt{redis-cli} on Windows prints keys with a carriage return, so the shell loop deleted
@@ -386,19 +399,30 @@ $\pm$ as the spread over seeds, not as a confidence interval.
 
 \subsection{What the post hoc ablations add}
 \begin{itemize}
-\item \textbf{Which 8 matters.} The ranked 8 are highly redundant (mean pairwise correlation
+\item \textbf{Which 8 might matter.} The ranked 8 are highly redundant (mean pairwise correlation
 \RedundancyReducedEight{}). Random sets of 8 do better on average (\RandomEightTestRmse{}), the 8
 \emph{lowest}-ranked sensors land at \PosthocGbrWorstEightTestRmse{}, and forward selection on validation reaches
-\PosthocGbrGreedyEightTestRmse{}, within \GreedyEightGap{} of the full model.
+\PosthocGbrGreedyEightTestRmse{}, within \GreedyEightGap{} of the full model. These are point estimates. Resampling the
+\SplitTest{} test engines puts the forward-selected gap anywhere from \BootGreedyEightGapLow{} to \BootGreedyEightGapHigh{},
+and even its advantage over the ranked set (\BootGreedyEightVsRankedLow{} to \BootGreedyEightVsRankedHigh{}) is not
+resolved.
 \item \textbf{The recipe matters as much.} Changing the window from 30 to 60 readings improves the 21-sensor
 model by \WindowEffectFullTwoOne{} cycles, about the size of the sensor effect. The verdict holds in every
 setting tried, but its size depends on the recipe.
 \end{itemize}
 
-\begin{keyidea}{a negative result with a positive lesson}
-The pre-registered experiment says ``no''. The ablations say why. Ranking sensors one at a time picks sensors that
-repeat each other. Fewer sensors can work if they are chosen together. That is a hypothesis for a new
-pre-registered experiment, not a conclusion of this one.
+\begin{keyidea}{seeds are not the uncertainty}
+The $\pm$ in the tables is the spread over training seeds: about \MainGbrFullTwoOneTestRmseStd{} cycles. All seeds share the
+same \SplitTest{} test engines, so the spread says nothing about how lucky that draw of engines was. Resampling the engines
+gives a 95\% interval of \BootFullTwoOneCiLow{} to \BootFullTwoOneCiHigh{} for the same model, about \BootCiOverSeed{} times
+wider. Judge every comparison against that interval. The pre-registered rejection survives it (gap interval
+\BootReducedEightGapLow{} to \BootReducedEightGapHigh{}); none of the post hoc ``inside the margin'' results does.
+\end{keyidea}
+
+\begin{keyidea}{a negative result, and a hypothesis}
+The pre-registered experiment says ``no''. The ablations suggest why: ranking sensors one at a time picks sensors that
+repeat each other. That fewer sensors could work if chosen together is a hypothesis for a new pre-registered
+experiment with more test engines, not a conclusion of this one.
 \end{keyidea}
 
 \subsection{Errors by hand}
@@ -435,7 +459,12 @@ not guessed.
 \item \textbf{Why is accuracy not your headline?} Because a model that always says HEALTHY scores
 \BaselineTrivialMeanFullTwoOneStatusAccPct{}\%.
 \item \textbf{What would you do differently?} Pre-register the sensor \emph{selection method} as an arm of its own,
-and choose the window on validation before the main comparison.
+choose the window on validation before the main comparison, and size the test set (or use repeated engine-level
+splits) so that the margin can actually be resolved: \SplitTest{} test engines give intervals about
+\BootCiOverSeed{} times wider than the seed spread.
+\item \textbf{Is anything in it unsafe to put on the internet?} A review found the dashboard rendered machine names
+as raw HTML (stored cross-site scripting) and the API has no authentication. The first is fixed; the second is
+acceptable only for a demo.
 \end{enumerate}
 
 %=====================================================================

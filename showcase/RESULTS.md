@@ -32,12 +32,14 @@ Non-inferiority margin 1.0 cycle of test RMSE, 3 seeds, 15 held-out engines.
 * Held-out engines replayed to failure: 15/15 give exactly one
   WARNING, then one CRITICAL. CRITICAL opens 31.7 cycles before failure on average.
 * Processor killed mid-stream: 20631/20631 readings scored once. Scores and alerts are identical to an uninterrupted run.
-* Java and Python predictions agree on 300 real rows; 44.4 µs per prediction.
-* 55 Java and 16 Python tests pass. Line coverage of the processing and alert code is 92.1%.
-* 4984 readings per second at p95 19.4 ms on a laptop (k6).
+* Java and Python predictions agree on 300 real rows; 69.5 µs per prediction.
+* 58 Java and 16 Python tests pass. Line coverage of the processing and alert code is 92.1%.
+* 4550 ± 516 readings per second at p95 21.9 ms on a laptop (k6, 3 repeats).
 
 **Errors.** 7.8% of test rows get a wrong status, always a neighbouring one. Of 35
 inspected by hand: 3 ambiguous, 0 mislabeled, 32 model errors (lagging on
 fast-failing engines, early on long-lived ones, jitter, plateaus).
 
-**Not verified.** No cloud deployment, so there is no live link. Docker paths run in CI only. All numbers come from one laptop.
+**Verified in CI.** The Java suite runs on Testcontainers and `docker compose up` passes its health check in GitHub Actions.
+
+**Not verified.** No cloud deployment, so there is no live link. All performance numbers come from one laptop.

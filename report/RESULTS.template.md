@@ -34,10 +34,12 @@ Non-inferiority margin {{ n.margin }} cycle of test RMSE, {{ n.n_seeds }} seeds,
 * Processor killed mid-stream: {{ n.restart_health_scores_rows }}/{{ n.restart_file_rows }} readings scored once. Scores and alerts are identical to an uninterrupted run.
 * Java and Python predictions agree on {{ n.parity_rows }} real rows; {{ n.java_us_per_prediction }} µs per prediction.
 * {{ n.tests_java }} Java and {{ n.tests_python }} Python tests pass. Line coverage of the processing and alert code is {{ n.coverage_processing_alerts }}%.
-{% if n.lt_best_rps is defined %}* {{ n.lt_best_rps }} readings per second at p95 {{ n.lt_best_p95 }} ms on a laptop (k6).
+{% if n.lt_after_cache_rps is defined %}* {{ n.lt_after_cache_rps }} ± {{ n.lt_after_cache_rps_std }} readings per second at p95 {{ n.lt_after_cache_p95 }} ms on a laptop (k6, {{ n.lt_after_cache_runs }} repeats).
 {% endif %}
 **Errors.** {{ n.ea_misclassified_pct }}% of test rows get a wrong status, always a neighbouring one. Of {{ n.ea_inspected }}
 inspected by hand: {{ n.ea_ambiguous }} ambiguous, {{ n.ea_mislabeled }} mislabeled, {{ n.ea_model }} model errors (lagging on
 fast-failing engines, early on long-lived ones, jitter, plateaus).
 
-**Not verified.** No cloud deployment, so there is no live link. Docker paths run in CI only. All numbers come from one laptop.
+**Verified in CI.** The Java suite runs on Testcontainers and `docker compose up` passes its health check in GitHub Actions.
+
+**Not verified.** No cloud deployment, so there is no live link. All performance numbers come from one laptop.

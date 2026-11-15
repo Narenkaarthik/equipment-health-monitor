@@ -1,0 +1,51 @@
+{
+  "resampled": "15 test engines with replacement, paired across arms",
+  "draws": 10000,
+  "margin": 1.0,
+  "gaps": {
+    "reduced8": {
+      "gap": 2.57,
+      "ci95_low": 1.238,
+      "ci95_high": 3.89,
+      "share_of_draws_below_margin": 0.01,
+      "non_inferior_by_ci": false,
+      "inferior_by_ci": true
+    },
+    "greedy8": {
+      "gap": 0.89,
+      "ci95_low": -0.048,
+      "ci95_high": 1.964,
+      "share_of_draws_below_margin": 0.621,
+      "non_inferior_by_ci": false,
+      "inferior_by_ci": false
+    },
+    "worst8": {
+      "gap": 0.975,
+      "ci95_low": -0.278,
+      "ci95_high": 2.141,
+      "share_of_draws_below_margin": 0.531,
+      "non_inferior_by_ci": false,
+      "inferior_by_ci": false
+    }
+  },
+  "vs_reduced8": {
+    "greedy8": {
+      "diff": -1.68,
+      "ci95_low": -3.69,
+      "ci95_high": 0.515,
+      "better_by_ci": false
+    },
+    "worst8": {
+      "diff": -1.596,
+      "ci95_low": -3.983,
+      "ci95_high": 0.824,
+      "better_by_ci": false
+    }
+  },
+  "full21_rmse_ci95": [
+    11.19,
+    14.65
+  ],
+  "full21_seed_std": 0.066,
+  "full21_ci_halfwidth_over_seed_std": 26.3
+}

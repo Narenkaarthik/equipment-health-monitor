@@ -81,6 +81,12 @@ of the window would make one cycle produce two different feature vectors dependi
 * If scoring throws, the machine's in-memory window is dropped, so the retry reloads the last saved
   state instead of seeing its own half-applied reading.
 * Messages that fail three times go to `readings.DLT`.
+* **Known gap: ingest is a dual write.** In the Kafka pipeline the request inserts the reading and publishes it
+  inside one database transaction. If the broker acknowledges and the commit then fails, the processor scores a
+  reading that is not in `readings`; if the process dies between the insert and the publish, the transaction rolls
+  back and the client retries, which is safe. The first case is rare (a commit failing after a successful
+  insert) but real. The standard fix is a transactional outbox: write the reading and an outbox row in one
+  transaction and let a relay publish the outbox. It is not built here.
 * After a restart the alert engine rebuilds each machine's state from PostgreSQL the first time it sees
   it: open alerts, and the recent scores strictly before the current cycle. (The first version also
   loaded the current score, which was already stored, and counted it twice; the alert simulator's

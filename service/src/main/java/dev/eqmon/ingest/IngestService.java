@@ -1,10 +1,9 @@
 package dev.eqmon.ingest;
 
-import dev.eqmon.machines.MachineRepository;
+import dev.eqmon.machines.KnownMachines;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,13 +18,13 @@ public class IngestService {
     public record Result(int received, int inserted, int duplicates) {}
 
     private final ReadingValidator validator;
-    private final MachineRepository machines;
+    private final KnownMachines machines;
     private final ReadingRepository readings;
     private final ReadingSink sink;
     private final Clock clock;
     private final io.micrometer.core.instrument.Counter ingested;
 
-    public IngestService(ReadingValidator validator, MachineRepository machines, ReadingRepository readings,
+    public IngestService(ReadingValidator validator, KnownMachines machines, ReadingRepository readings,
             ReadingSink sink, Clock clock, io.micrometer.core.instrument.MeterRegistry metrics) {
         this.validator = validator;
         this.machines = machines;
@@ -37,8 +36,7 @@ public class IngestService {
 
     @Transactional
     public Result ingest(List<ReadingRequest> batch) {
-        Set<Integer> known = machines.ids();
-        List<ReadingValidator.Problem> problems = validator.validate(batch, known);
+        List<ReadingValidator.Problem> problems = validator.validate(batch, machines::contains);
         if (!problems.isEmpty()) {
             throw new InvalidBatchException(problems);
         }

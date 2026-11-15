@@ -21,15 +21,27 @@ mode. The sensor-reduction question behind it, asked before any model was traine
 {{ n.hyp_gap }} cycles worse (paired by seed: {{ n.hyp_gap_min }} to {{ n.hyp_gap_max }}), so the service
 ships the 21-sensor model, as the pre-registered deployment rule says.
 
-Post hoc ablations then show that *which* 8 matters more than *how many*:
+The rejection is robust. Resampling the {{ n.split_test }} test engines {{ n.boot_draws }} times puts the gap
+between {{ n.boot_reduced8_gap_low }} and {{ n.boot_reduced8_gap_high }} cycles (95% interval), entirely above the margin.
 
-* 8 sensors chosen by forward selection on the validation engines come within {{ n.greedy8_gap }} cycles
-  of the full model, inside the margin.
-* The 8 *lowest*-ranked sensors land at {{ n.worst8_gap }} cycles, also inside, by a hair.
-* Random 8-sensor draws land between {{ n.random8_best_gap }} and {{ n.random8_worst_gap }}.
+Post hoc ablations ask whether the ranking or the number 8 failed. The point estimates say the ranking:
+
+* 8 sensors chosen by forward selection on the validation engines: {{ n.greedy8_gap }} cycles behind the full model;
+* the 8 *lowest*-ranked sensors: {{ n.worst8_gap }} cycles behind;
+* random 8-sensor draws: between {{ n.random8_best_gap }} and {{ n.random8_worst_gap }} cycles behind.
+
+But those point estimates do **not** establish that any 8 sensors suffice. With {{ n.split_test }} test engines the
+95% interval for the forward-selected set runs from {{ n.boot_greedy8_gap_low }} to {{ n.boot_greedy8_gap_high }},
+across the margin in both directions; for the lowest-ranked set it is {{ n.boot_worst8_gap_low }} to
+{{ n.boot_worst8_gap_high }}. {% if n.boot_greedy8_better_than_ranked == "yes" %}What the data does support is that the
+forward-selected set beats the ranked set: by {{ n.boot_greedy8_vs_ranked }} cycles, interval
+{{ n.boot_greedy8_vs_ranked_low }} to {{ n.boot_greedy8_vs_ranked_high }}, entirely below zero.{% else %}Even the
+difference between the forward-selected set and the ranked set ({{ n.boot_greedy8_vs_ranked }} cycles, interval
+{{ n.boot_greedy8_vs_ranked_low }} to {{ n.boot_greedy8_vs_ranked_high }}) is not resolved.{% endif %}
 
 The ranking picked sensors that move together: their mean pairwise correlation is
-{{ n.redundancy_reduced8 }}, against {{ n.redundancy_worst8 }} for the lowest-ranked set.
+{{ n.redundancy_reduced8 }}, against {{ n.redundancy_worst8 }} for the lowest-ranked set. That is a hypothesis
+for a new pre-registered test with more test engines, not a conclusion of this one.
 
 ## Honesty note
 
@@ -51,10 +63,15 @@ The ranking picked sensors that move together: their mean pairwise correlation i
   engines.
 * **Where the numbers come from.** Every number on this page is generated from `results/` by
   `model/report.py`; none is typed by hand. The same numbers feed the paper through `report/numbers.tex`.
-* **What is not verified here.** There is no cloud deployment and therefore no live link: it needs an
-  account on a hosting provider. Docker Compose and the Testcontainers path run in GitHub Actions only;
-  the build machine has no Docker, so locally the integration tests ran against native PostgreSQL 17,
-  Redis and Kafka. All performance numbers come from one Windows laptop.
+* **What is verified where.** GitHub Actions runs the full Java suite against Testcontainers (PostgreSQL,
+  Redis, Kafka) and checks that `docker compose up` answers the health check; both pass. The build machine
+  has no Docker, so locally the same tests ran against native PostgreSQL 17, Redis and Kafka.
+* **What is not verified.** There is no cloud deployment and therefore no live link: it needs an account on a
+  hosting provider. All performance numbers come from one Windows laptop.
+* **How uncertain the numbers are.** The ± in the model tables is the spread over {{ n.n_seeds }} training seeds.
+  It is far smaller than the uncertainty from having only {{ n.split_test }} test engines: resampling those engines
+  gives a 95% interval of {{ n.boot_full21_ci_low }} to {{ n.boot_full21_ci_high }} for the 21-sensor RMSE.
+  Every comparison below is judged against that interval, not against the seed spread.
 
 ## Results
 
@@ -88,8 +105,8 @@ The pre-registered ranking scored each sensor alone by its rank correlation with
 their window means is {{ n.redundancy_reduced8 }}, so 8 of them carry little more than one. The ranking left
 out sensors {{ n.audit_top_outside }}, which carry {{ n.audit_importance_outside_pct }}% of the full model's
 importance. Forward selection on validation picked {{ n.greedy8_sensors }} (redundancy {{ n.redundancy_greedy8 }}).
-The lowest-ranked set has redundancy {{ n.redundancy_worst8 }}; it lands inside the margin only by a hair,
-and with three seeds that edge is not a finding.
+The lowest-ranked set has redundancy {{ n.redundancy_worst8 }}. "Within 1.0" in the table compares point estimates
+only; the engine-level intervals above show that none of the post hoc sets is established as non-inferior.
 
 ![Sensor importance](report/figures/sensor_importance.png)
 
@@ -123,8 +140,11 @@ Splitting rows at random, so that cycles of one engine land in both training and
 | Tests | {{ n.tests_java }} Java, {{ n.tests_python }} Python, all passing |
 | Line coverage, processing and alert code | {{ n.coverage_processing_alerts }}% |
 {% if n.lt_best_rps is defined %}
-**Throughput:** {{ n.lt_best_rps }} readings per second at p95 latency of {{ n.lt_best_p95 }} ms
-(p99 {{ n.lt_best_p99 }} ms) on a laptop, k6 against `POST /api/readings`.
+**Throughput:** {{ n.lt_after_cache_rps }} ± {{ n.lt_after_cache_rps_std }} readings per second at p95 latency of
+{{ n.lt_after_cache_p95 }} ms (p99 {{ n.lt_after_cache_p99 }} ms) for the shipped configuration on a laptop, k6 against
+`POST /api/readings`, mean ± spread of {{ n.lt_after_cache_runs }} interleaved repeats. The first bottleneck (requests
+queueing for database connections) was found from metrics and removed in every repeat, but the throughput gain from
+removing it ({{ n.lt_total_gain_min }}% to {{ n.lt_total_gain_max }}% per repeat block) is within this machine's drift.
 
 {{ t.loadtest }}
 
@@ -192,6 +212,15 @@ One reading, end to end, the ordering rule, crash safety and the alert semantics
 * The processor saved the window before scoring it, so a crash between the two would have lost a score.
 * Integration tests shared the dev Redis and left windows behind, and every later reading was ignored as late.
 * On Windows, deleting a Kafka topic makes the broker shut down, so experiments use a fresh topic per run.
+* (Found in a later review.) The tables reported the spread over training seeds as if it were the uncertainty.
+  Resampling the test engines gives intervals about {{ n.boot_ci_over_seed }} times wider, and the post hoc claims that
+  some 8-sensor sets land "inside the margin" did not survive it.
+* (Found in a later review.) Machine names reached the dashboard as raw HTML: anyone who can call the API could
+  inject script into every viewer's page. The dashboard now escapes everything and registration refuses markup.
+* (Found in a later review.) Live dashboard events were written on the processing thread, so one slow browser
+  could stall scoring. They now go through a bounded queue on their own thread.
+* (Found in a later review.) Every ingest request loaded all machine ids from PostgreSQL to validate one reading;
+  ids are now cached, with a database lookup for machines registered elsewhere.
 
 ## Limitations
 
@@ -201,8 +230,14 @@ One reading, end to end, the ordering rule, crash safety and the alert semantics
   engines, gives {{ n.all_engines_alert_pass }} of 100: a few close a WARNING and reopen it within a few cycles.
 * After a restart, an alert that was about to close needs a fresh run of clear readings: its clear
   streak is not persisted.
-* Three seeds give a spread, not a confidence interval. The non-inferiority verdict uses the mean
-  against a fixed margin, as pre-registered.
+* One split with {{ n.split_test }} test engines bounds every comparison. The pre-registered verdict compares the mean
+  with the margin; an interval-based rule would have been stricter. Both are reported, and the main rejection passes
+  both. The post hoc comparisons pass neither.
+* In the Kafka pipeline, ingest writes to PostgreSQL and Kafka without a shared transaction. A commit that fails after
+  the broker acknowledged leaves a scored reading with no stored row. A transactional outbox would close the gap; it is
+  documented in `docs/architecture.md`, not built.
+* The API has no authentication: anyone who can reach it can register machines, post readings and acknowledge alerts.
+  That is acceptable for a local demo, not for a deployment.
 * Performance numbers are from one laptop with everything running on it.
 
 ## Repository map

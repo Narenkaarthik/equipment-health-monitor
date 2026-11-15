@@ -86,11 +86,11 @@ def main() -> None:
             (f"8 ranked sensors: {N['main_gbr_reduced8_test_rmse']} cycles RMSE", "warn", 28),
             (f"So the service ships all 21, as the pre-registered rule says.", "muted", 22)],
             big=f"+{N['hyp_gap']}", big_label=f"cycles worse, against a {N['margin']}-cycle margin"),
-        card(4, "But it's which 8,\nnot how many.", [
-            (f"8 picked by forward selection: +{N['greedy8_gap']} (inside the margin)", "accent", 18),
-            (f"8 lowest-ranked sensors: +{N['worst8_gap']}", "fg", 18),
-            (f"The ranked 8 move together: correlation {N['redundancy_reduced8']}", "warn", 18),
-            ("(post hoc: a hypothesis for the next experiment)", "muted", 18)], image="which_eight.png"),
+        card(4, "Was it the ranking,\nor the number 8?", [
+            (f"Ranked 8: +{N['hyp_gap']} (interval {N['boot_reduced8_gap_low']} to {N['boot_reduced8_gap_high']}): clearly worse", "warn", 18),
+            (f"Forward-selected 8: +{N['greedy8_gap']} (interval {N['boot_greedy8_gap_low']} to {N['boot_greedy8_gap_high']})", "fg", 18),
+            (f"Point estimates blame the ranking (its 8 move together, r = {N['redundancy_reduced8']}), but {N['split_test']} test engines cannot resolve it.", "accent", 18)],
+            image="which_eight.png"),
         card(5, "The recipe was as big\nas the effect.", [
             (f"Window 30 to 60 readings: {N['window_effect_full21']} cycles better", "fg", 21),
             (f"Sensor gap at window 10 / 30 / 60:", "fg", 21),

@@ -10,6 +10,7 @@
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
 \usepackage{cite}
+\usepackage{ifthen}
 \graphicspath{{figures/}}
 \input{numbers.tex}
 \newcommand{\pmsd}[2]{#1\,$\pm$\,#2}
@@ -31,9 +32,12 @@ sliding window per machine, predicts remaining useful life (RUL) with an in-proc
 de-duplicated alerts. On top of it we ask whether the model can run on 8 of the 21 sensors without losing
 accuracy. The test is pre-registered as non-inferiority with a margin of \Margin{} cycle of RMSE on held-out
 engines of NASA C-MAPSS FD001, a simulated run-to-failure dataset. With the pre-registered ranking rule, the
-answer is no: 8 ranked sensors are \HypGap{} cycles worse than all 21 (\MainGbrFullTwoOneTestRmse{} cycles RMSE).
-Post hoc ablations show that the ranking, not the number 8, is what failed: random 8-sensor subsets do better on
-average, and 8 sensors chosen by forward selection on validation engines come within \GreedyEightGap{} cycles.
+answer is no: 8 ranked sensors are \HypGap{} cycles worse than all 21 (\MainGbrFullTwoOneTestRmse{} cycles RMSE), and
+resampling the test engines keeps the gap above the margin (95\% interval \BootReducedEightGapLow{} to
+\BootReducedEightGapHigh{}). Post hoc ablations suggest the ranking rather than the number 8 is to blame: random subsets
+do better on average, and 8 sensors chosen by forward selection on validation engines come within \GreedyEightGap{}
+cycles. With only \SplitTest{} test engines, however, none of these post hoc differences is resolved (the forward-selected
+gap's interval is \BootGreedyEightGapLow{} to \BootGreedyEightGapHigh{}), so whether 8 sensors can suffice remains open.
 A window-length ablation moves the error by about as much as the sensor reduction does, so the main result
 holds only under its recipe. The service passes a kill-and-restart test with no lost or doubled reading and
 alerts identical to an uninterrupted run, and opens exactly one WARNING and one CRITICAL alert on
@@ -123,6 +127,10 @@ before the first main result.
 cycles RMSE, \TrivOverGbr{} times better than predicting the training mean. The 8 ranked sensors give
 \pmsd{\MainGbrReducedEightTestRmse}{\MainGbrReducedEightTestRmseStd}: a gap of \HypGap{} cycles, between
 \HypGapMin{} and \HypGapMax{} when paired by seed. \textbf{H1 is rejected}, and the service ships the 21-sensor model.
+The seed spread understates the uncertainty, because all runs share the same \SplitTest{} test engines. Resampling those
+engines \BootDraws{} times, paired across arms, gives a 95\% interval of \BootFullTwoOneCiLow{} to \BootFullTwoOneCiHigh{}
+for the 21-sensor RMSE, about \BootCiOverSeed{} times the seed spread. The interval for the gap is
+\BootReducedEightGapLow{} to \BootReducedEightGapHigh{}, so the rejection does not depend on which engines were drawn.
 The 15-sensor arm is identical to the 21-sensor arm: no tree splits on a constant sensor (\AuditConstSplits{} splits).
 Status accuracy is not the headline because the classes are imbalanced: the trivial model scores
 \BaselineTrivialMeanFullTwoOneStatusAccPct{}\% accuracy while catching no CRITICAL machine.
@@ -142,24 +150,30 @@ uses the same model, grid, selection rule and three seeds.
 \label{fig:which8}
 \end{figure}
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{Which 8 sensors (post hoc except the first two rows).}
+\caption{Which 8 sensors (post hoc except the first two rows). The interval is over resampled test engines.}
 \label{tab:which8}
-\scriptsize
-\setlength{\tabcolsep}{2.5pt}
-\resizebox{\columnwidth}{!}{\input{tables/which8.tex}}
-\end{table}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\resizebox{\textwidth}{!}{\input{tables/which8.tex}}
+\end{table*}
 
-\textbf{Which 8, not how many.} The full model puts \AuditImportanceOutsidePct{}\% of its importance on sensors
+\textbf{Which 8? Suggestive, not established.} The full model puts \AuditImportanceOutsidePct{}\% of its importance on sensors
 \AuditTopOutside{}, which the ranking left out. Ranking each sensor alone selects sensors that move together:
 the mean absolute correlation between the window means of the 8 ranked sensors is \RedundancyReducedEight{},
 against \RedundancyWorstEight{} for the 8 lowest-ranked ones. Random 8-sensor subsets average
-\RandomEightTestRmse{} cycles over \RandomEightDraws{} draws, better than the ranking. The 8 lowest-ranked
-sensors give \PosthocGbrWorstEightTestRmse{}, inside the margin by a hair that three seeds cannot
-resolve. Forward selection on the validation engines picks sensors \GreedyEightSensors{} and comes within
-\GreedyEightGap{} cycles of the full model (Table~\ref{tab:which8}, Fig.~\ref{fig:which8}). Fewer sensors can
-be enough; a univariate ranking is the wrong way to choose them.
+\RandomEightTestRmse{} cycles over \RandomEightDraws{} draws, better than the ranking. Forward selection on the
+validation engines picks sensors \GreedyEightSensors{} and comes within \GreedyEightGap{} cycles of the full model; the
+8 lowest-ranked sensors come within \WorstEightGap{} (Table~\ref{tab:which8}, Fig.~\ref{fig:which8}). Those point
+estimates sit inside the margin, but their engine-level intervals (\BootGreedyEightGapLow{} to \BootGreedyEightGapHigh{}
+and \BootWorstEightGapLow{} to \BootWorstEightGapHigh{}) cross it: \SplitTest{} test engines cannot establish that any
+8 sensors suffice. \ifthenelse{\equal{\BootGreedyEightBetterThanRanked}{yes}}{What they do establish is that the
+forward-selected set beats the ranked one, by \BootGreedyEightVsRanked{} cycles (interval \BootGreedyEightVsRankedLow{}
+to \BootGreedyEightVsRankedHigh{}): a univariate ranking is the wrong way to choose sensors.}{Even the difference between
+the forward-selected and the ranked set (\BootGreedyEightVsRanked{} cycles, interval \BootGreedyEightVsRankedLow{} to
+\BootGreedyEightVsRankedHigh{}) is not resolved.} Whether fewer sensors suffice is a question for a new
+pre-registered test with more test engines.
 
 \begin{figure}[t]
 \centering
@@ -197,15 +211,16 @@ alerts are identical to an uninterrupted run, and \RestartRedeliveredAndIgnoredA
 ignored as late.
 
 \textbf{Throughput.} k6 posts one reading per request from \LtBeforeVus{} virtual users for \LtBeforeDurationS{}\,s, with every
-component on one laptop (Table~\ref{tab:load}). The baseline sustained \LtBeforeRps{} readings per second at
-p95 \LtBeforePNineFive{}\,ms. Sampled metrics located the first bottleneck: on average \LtBeforePoolPending{} requests waited
-for one of \LtBeforePool{} database connections while CPU stayed at \LtBeforeCpuPct{}\%. A pool of \LtAfterPool{}
-raised throughput by \LtGainPct{}\% to \LtAfterRps{} readings per second (p95 \LtAfterPNineFive{}\,ms, p99
-\LtAfterPNineNine{}\,ms). Contention then moved to the database writes: processing time per reading rose from
-\LtBeforeProcessingMs{} to \LtAfterProcessingMs{}\,ms. With the Kafka pipeline, ingest was not faster
-(\LtKafkaRps{} readings per second), because each request waits for the broker's acknowledgement. Six consumer
-threads processed \LtKafkaProcessedRps{} readings per second and drained the backlog \LtKafkaDrainS{}\,s after the load
-stopped. Kafka buys isolation and durability here, not speed.
+component on one laptop; each configuration ran \LtBeforeRuns{} times, interleaved (Table~\ref{tab:load}). The baseline
+sustained \pmsd{\LtBeforeRps}{\LtBeforeRpsStd} readings per second at p95 \LtBeforePNineFive{}\,ms. Sampled metrics located
+the first bottleneck: on average \LtBeforePoolPending{} requests waited for one of \LtBeforePool{} database connections while
+CPU stayed at \LtBeforeCpuPct{}\%. A pool of \LtAfterPool{} removed the waits in every repeat, and caching the set of
+known machines removed a query per request. Throughput, however, moved by only \LtTotalGainMin{}\% to
+\LtTotalGainMax{}\% when paired by repeat block (\pmsd{\LtAfterCacheRps}{\LtAfterCacheRpsStd} readings per second, p95
+\LtAfterCachePNineFive{}\,ms): the drift between blocks on one laptop is as large as the effect, and the contention moved
+to the database writes. With the Kafka pipeline, ingest reached \LtKafkaRps{} readings per second, because each
+request waits for the broker's acknowledgement; six consumer threads processed \LtKafkaProcessedRps{} readings per second and
+drained the backlog \LtKafkaDrainS{}\,s after the load stopped. Kafka buys isolation and durability here, not speed.
 
 \begin{table}[t]
 \centering
@@ -236,15 +251,20 @@ becomes a single direction only after windowing and the model.
 
 \section{Limitations}
 FD001 is one simulated operating condition and fault mode; nothing here shows transfer to other conditions or
-to real engines. Three seeds give a spread, not a confidence interval. The alert rule passes on every held-out
-engine, but on all 100 engines it passes \AllEnginesAlertPass{}: a few training engines close a WARNING and
-reopen it. Throughput was measured on one laptop with every component on it. The system was not deployed to a
-cloud host.
+to real engines. One split of \SplitTest{} test engines bounds every comparison; repeated splits or more engines would
+narrow the intervals. The non-inferiority rule was pre-registered on point estimates; a rule on the engine-level
+interval would have been stricter, and we report both. The alert rule passes on every held-out engine, but on all
+\EdaEngines{} engines it passes \AllEnginesAlertPass{}: a few training engines close a WARNING and reopen it. In the
+Kafka pipeline, ingest writes to PostgreSQL and Kafka without a shared transaction; a transactional outbox would close
+that gap. Throughput was measured on one laptop with every component on it. The system was not deployed to a cloud
+host; continuous integration runs the full test suite on Testcontainers and checks \texttt{docker compose up}.
 
 \section{Conclusion}
-A pre-registered test rejected the claim that the 8 top-ranked sensors suffice, and the service ships all 21.
-The post hoc analysis changes what that rejection means. The ranking rule failed, not the idea of fewer sensors,
-and a recipe choice of the same size as the effect means the verdict is conditional. As in other ML
+A pre-registered test rejected the claim that the 8 top-ranked sensors suffice, and the rejection survives
+resampling the test engines; the service ships all 21.
+The post hoc analysis qualifies that rejection without overturning it. The point estimates suggest the ranking
+rule, not the idea of fewer sensors, is to blame, but \SplitTest{} test engines cannot resolve those post hoc differences;
+and a recipe choice of the same size as the effect means the verdict is conditional on the recipe. As in other ML
 systems~\cite{sculley2015}, the model was the small part. Most of the defects we caught were in the system
 around it: a trend rule tuned for a clean signal, a double-counted score after restart, a window saved before
 its score, and a test suite that leaked state into the dev Redis.

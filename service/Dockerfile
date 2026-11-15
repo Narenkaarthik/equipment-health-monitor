@@ -12,7 +12,9 @@ RUN mvn -B -q -pl service -am -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 10001 monitor
+# curl for the HEALTHCHECK below; installed explicitly rather than trusting the base image to carry it
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 monitor
 COPY --from=build /src/service/target/service-*.jar app.jar
 USER monitor
 EXPOSE 8080

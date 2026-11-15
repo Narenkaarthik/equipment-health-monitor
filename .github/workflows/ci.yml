@@ -40,6 +40,17 @@ jobs:
             sleep 3
           done
           echo "service never became healthy"; docker compose logs service; exit 1
+      - name: Container health check (the image's own HEALTHCHECK)
+        run: |
+          id=$(docker compose ps -q service)
+          for i in $(seq 1 30); do
+            s=$(docker inspect --format '{{.State.Health.Status}}' "$id")
+            echo "health: $s"
+            [ "$s" = "healthy" ] && exit 0
+            [ "$s" = "unhealthy" ] && { docker inspect --format '{{json .State.Health}}' "$id"; exit 1; }
+            sleep 5
+          done
+          exit 1
       - name: Stop the stack
         if: always()
         run: docker compose down -v
